@@ -1,3 +1,105 @@
-/* You can add global styles to this file, and also import other style files */
-
+@import '@fontsource-variable/instrument-sans';
 @import 'tailwindcss';
+@import '@angular/cdk/overlay-prebuilt.css';
+
+:root {
+  color-scheme: light;
+  --bg: #f1f4f7;
+  --surface: #ffffff;
+  --ink: #12202f;
+  --muted: #55646f;
+  --line: #d5dde4;
+  --accent: #1f4fd8;
+  --on-accent: #ffffff;
+  --gain: #0b6f4a;
+  --gain-soft: #dcf1e7;
+  --tax: #a83c17;
+  --danger-soft: #fbe6de;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #0f1720;
+    --surface: #17222e;
+    --ink: #e8eef3;
+    --muted: #9fb0bd;
+    --line: #2c3b49;
+    --accent: #86a6ff;
+    --on-accent: #0d1a3a;
+    --gain: #5fd3a3;
+    --gain-soft: #143a2d;
+    --tax: #f3a17f;
+    --danger-soft: #42231a;
+  }
+}
+
+@theme inline {
+  --font-sans: 'Instrument Sans Variable', system-ui, sans-serif;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-gain: var(--gain);
+  --color-gain-soft: var(--gain-soft);
+  --color-tax: var(--tax);
+  --color-danger-soft: var(--danger-soft);
+}
+
+@layer base {
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex min-h-11 cursor-pointer items-center justify-center rounded-md px-4 font-medium transition-opacity disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply bg-accent text-on-accent hover:opacity-90;
+  }
+
+  .btn-secondary {
+    @apply border border-line bg-surface hover:border-muted;
+  }
+
+  .field-label {
+    @apply mb-1 block text-sm font-medium;
+  }
+
+  .field {
+    @apply block min-h-11 w-full rounded-md border border-line bg-surface px-3;
+  }
+
+  .field-error {
+    @apply mt-1 text-sm text-tax;
+  }
+
+  .alert {
+    @apply rounded-md bg-danger-soft px-4 py-3 text-tax;
+  }
+
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
