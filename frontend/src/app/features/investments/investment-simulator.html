@@ -1,0 +1,51 @@
+<section class="rounded-lg border border-line bg-surface p-6" aria-labelledby="simulation-title">
+  <h2 id="simulation-title" class="font-semibold">Simulation</h2>
+  @if (rules.hasValue()) {
+    <p class="mt-1 text-muted">
+      Pays {{ rules.value().monthlyGainRate | percent: '1.0-2' }} per month, compounded. Nothing is saved here.
+    </p>
+  }
+
+  <label for="months" class="field-label mt-4">Term in months</label>
+  <input
+    #monthsInput
+    id="months"
+    type="number"
+    inputmode="numeric"
+    step="1"
+    min="1"
+    [max]="maxMonths"
+    class="field num"
+    aria-describedby="months-error"
+    [attr.aria-invalid]="!validMonths()"
+    [value]="months()"
+    (input)="months.set(monthsInput.value)"
+  />
+  <div id="months-error">
+    @if (!validMonths()) {
+      <p class="field-error">Enter a whole number between 1 and {{ maxMonths }}.</p>
+    }
+  </div>
+
+  <div class="mt-4 min-h-44" aria-live="polite" [attr.aria-busy]="result.isLoading()">
+    @if (!terms()) {
+      <p class="text-muted">Enter an amount and a date to see the result.</p>
+    } @else if (error()) {
+      <p class="alert" role="alert">{{ error() }}</p>
+    } @else if (result.hasValue()) {
+      @let values = result.value();
+      <dl class="num grid grid-cols-[1fr_auto] gap-y-3">
+        <dt class="text-muted">Balance on {{ values.date | date: 'mediumDate' }}</dt>
+        <dd class="pl-4 text-right">{{ values.grossAmount | currency }}</dd>
+        <dt class="text-muted">Gains</dt>
+        <dd class="pl-4 text-right text-gain">{{ values.gains | currency }}</dd>
+        <dt class="text-muted">Tax on gains ({{ values.taxRate | percent: '1.0-2' }})</dt>
+        <dd class="pl-4 text-right text-tax">−{{ values.taxAmount | currency }}</dd>
+        <dt class="border-t border-line pt-3 font-semibold">You would receive</dt>
+        <dd class="border-t border-line pt-3 pl-4 text-right font-semibold">{{ values.netAmount | currency }}</dd>
+      </dl>
+    } @else if (result.isLoading()) {
+      <p class="text-muted">Calculating…</p>
+    }
+  </div>
+</section>

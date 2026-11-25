@@ -1,6 +1,7 @@
 import { Dialog } from '@angular/cdk/dialog';
 import { httpResource } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import {
   AbstractControl,
   NonNullableFormBuilder,
@@ -14,6 +15,7 @@ import { errorMessage } from '../../core/error-message';
 import { InvestmentsApi } from '../../core/investments-api';
 import { Owner } from '../../core/models';
 import { ToastService } from '../../shared/toaster';
+import { InvestmentSimulator } from './investment-simulator';
 import { OwnerDialog } from './owner-dialog';
 
 const MAX_AMOUNT = 999_999_999_999.99;
@@ -21,7 +23,7 @@ const MIN_DATE = '1900-01-01';
 
 @Component({
   selector: 'app-investment-form',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [InvestmentSimulator, ReactiveFormsModule, RouterLink],
   templateUrl: './investment-form.html',
 })
 export class InvestmentForm {
@@ -43,6 +45,15 @@ export class InvestmentForm {
       [Validators.required, Validators.min(0.01), Validators.max(MAX_AMOUNT), twoDecimals],
     ],
     creationDate: [this.today, [Validators.required, dateBetween(MIN_DATE, this.today)]],
+  });
+
+  private readonly values = toSignal(this.form.valueChanges);
+  protected readonly terms = computed(() => {
+    this.values();
+    const { amount, creationDate } = this.form.controls;
+    return amount.valid && creationDate.valid && amount.value !== null
+      ? { amount: amount.value, creationDate: creationDate.value }
+      : null;
   });
 
   protected addOwner(): void {
