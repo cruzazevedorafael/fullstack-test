@@ -58,6 +58,12 @@ public sealed record ListInvestmentsRequest : PageRequest
     /// <summary>When informed, returns only the investments of this person.</summary>
     public Guid? OwnerId { get; init; }
 
+    /// <summary>When informed, returns only the investments created on this day or later.</summary>
+    public DateOnly? From { get; init; }
+
+    /// <summary>When informed, returns only the investments created on this day or earlier.</summary>
+    public DateOnly? To { get; init; }
+
     /// <summary>When informed, returns only the investments with this status.</summary>
     public InvestmentStatus? Status { get; init; }
 
@@ -66,6 +72,21 @@ public sealed record ListInvestmentsRequest : PageRequest
 
     public SortDirection SortDirection { get; init; } = SortDirection.Desc;
 }
+
+public sealed record SummaryRequest
+{
+    /// <summary>When informed, considers only the investments of this person.</summary>
+    public Guid? OwnerId { get; init; }
+
+    /// <summary>When informed, considers only the investments created on this day or later.</summary>
+    public DateOnly? From { get; init; }
+
+    /// <summary>When informed, considers only the investments created on this day or earlier.</summary>
+    public DateOnly? To { get; init; }
+}
+
+/// <param name="ActiveBalance">Sum of the expected balances today, before taxes.</param>
+public sealed record SummaryResponse(decimal ActiveBalance, int ActiveInvestments);
 
 public sealed record WithdrawalResponse(
     DateOnly Date,

@@ -307,6 +307,49 @@ public sealed class InvestmentsApiTests(ApiFactory factory) : IClassFixture<ApiF
     }
 
     [Theory]
+    [InlineData("&from=2025-03-02", new[] { 300, 200 })]
+    [InlineData("&to=2025-03-02", new[] { 200, 100 })]
+    [InlineData("&from=2025-03-02&to=2025-03-02", new[] { 200 })] // both ends are included
+    [InlineData("&from=2025-03-03&to=2025-03-01", new int[0])]
+    public async Task List_is_filtered_by_period(string period, int[] expected)
+    {
+        var ownerId = await CreateOwnerAsync();
+        await PostInvestmentAsync(ownerId, 100m, "2025-03-01");
+        await PostInvestmentAsync(ownerId, 200m, "2025-03-02");
+        await PostInvestmentAsync(ownerId, 300m, "2025-03-03");
+
+        var list = await GetJsonAsync($"/api/investments?ownerId={ownerId}{period}");
+
+        Assert.Equal(expected.Select(v => (decimal)v), Amounts(list));
+    }
+
+    [Fact]
+    public async Task Summary_adds_the_balance_of_active_investments_only()
+    {
+        var ownerId = await CreateOwnerAsync();
+        await PostInvestmentAsync(ownerId, 1000m, "2025-06-15"); // 1064.22 today
+        await PostInvestmentAsync(ownerId, 500m, "2026-06-15");
+        var withdrawn = await PostInvestmentAsync(ownerId, 9000m, "2025-03-02");
+        await WithdrawAsync((await withdrawn.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid(), "2026-01-10");
+        await CreateInvestmentAsync(7m, "2025-06-15"); // someone else's
+
+        var summary = await GetJsonAsync($"/api/investments/summary?ownerId={ownerId}");
+        var period = await GetJsonAsync($"/api/investments/summary?ownerId={ownerId}&from=2026-01-01&to=2026-12-31");
+
+        Assert.Equal(1564.22m, summary.GetProperty("activeBalance").GetDecimal());
+        Assert.Equal(2, summary.GetProperty("activeInvestments").GetInt32());
+        Assert.Equal(500m, period.GetProperty("activeBalance").GetDecimal());
+    }
+
+    [Fact]
+    public async Task Summary_of_a_person_without_investments_is_zero()
+    {
+        var summary = await GetJsonAsync($"/api/investments/summary?ownerId={await CreateOwnerAsync()}");
+
+        Assert.Equal(0m, summary.GetProperty("activeBalance").GetDecimal());
+    }
+
+    [Theory]
     [InlineData("", new[] { 1000, 9, 20 })] // newest first
     [InlineData("&sortBy=CreationDate&sortDirection=Asc", new[] { 20, 9, 1000 })]
     [InlineData("&sortBy=Amount&sortDirection=Asc", new[] { 9, 20, 1000 })] // as numbers, not as text
@@ -357,6 +400,7 @@ public sealed class InvestmentsApiTests(ApiFactory factory) : IClassFixture<ApiF
     [InlineData("pageSize=0")]
     [InlineData("pageSize=101")]
     [InlineData("page=abc")]
+    [InlineData("from=abc")]
     [InlineData("status=Unknown")]
     [InlineData("status=7")]
     [InlineData("sortBy=Balance")]

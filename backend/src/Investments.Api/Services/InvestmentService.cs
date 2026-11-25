@@ -21,12 +21,7 @@ public sealed class InvestmentService(
 
     public async Task<PagedResponse<InvestmentResponse>> ListAsync(ListInvestmentsRequest request, CancellationToken cancellationToken)
     {
-        var query = db.Investments.AsNoTracking();
-
-        if (request.OwnerId is { } ownerId)
-        {
-            query = query.Where(i => i.OwnerId == ownerId);
-        }
+        var query = Filter(request.OwnerId, request.From, request.To);
 
         if (request.Status is { } status)
         {
@@ -54,6 +49,17 @@ public sealed class InvestmentService(
         var investment = await FindAsync(id, cancellationToken);
 
         return [.. investment.GetGrowth(calendar.Today, ProjectedMonths, rules).Select(p => new GrowthPointResponse(p.Date, p.Balance, p.Projected))];
+    }
+
+    /// <summary>The balance is calculated and not stored, so it can't be added up by the database.</summary>
+    public async Task<SummaryResponse> GetSummaryAsync(SummaryRequest request, CancellationToken cancellationToken)
+    {
+        var active = await Filter(request.OwnerId, request.From, request.To)
+            .Where(i => i.Status == InvestmentStatus.Active)
+            .ToListAsync(cancellationToken);
+        var today = calendar.Today;
+
+        return new SummaryResponse(active.Sum(i => i.GetBalance(today, rules).CurrentBalance), active.Count);
     }
 
     public WithdrawalResponse Simulate(SimulationRequest request) =>
@@ -99,6 +105,28 @@ public sealed class InvestmentService(
         await notifier.InvestmentWithdrawnAsync(investment, investment.Owner!);
 
         return ToResponse(investment);
+    }
+
+    private IQueryable<Investment> Filter(Guid? ownerId, DateOnly? from, DateOnly? to)
+    {
+        var query = db.Investments.AsNoTracking();
+
+        if (ownerId is not null)
+        {
+            query = query.Where(i => i.OwnerId == ownerId);
+        }
+
+        if (from is not null)
+        {
+            query = query.Where(i => i.CreationDate >= from);
+        }
+
+        if (to is not null)
+        {
+            query = query.Where(i => i.CreationDate <= to);
+        }
+
+        return query;
     }
 
     /// <summary>Ties are always resolved the same way, so no item is repeated or skipped between pages.</summary>

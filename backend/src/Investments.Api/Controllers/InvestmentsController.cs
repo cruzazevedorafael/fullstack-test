@@ -19,6 +19,14 @@ public sealed class InvestmentsController(InvestmentService investments) : Contr
     public Task<PagedResponse<InvestmentResponse>> List([FromQuery] ListInvestmentsRequest request, CancellationToken cancellationToken) =>
         investments.ListAsync(request, cancellationToken);
 
+    [HttpGet("summary")]
+    [EndpointSummary("View the total balance")]
+    [EndpointDescription("Sum of the expected balances of active investments, optionally of a single person or creation period.")]
+    [ProducesResponseType<SummaryResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    public Task<SummaryResponse> GetSummary([FromQuery] SummaryRequest request, CancellationToken cancellationToken) =>
+        investments.GetSummaryAsync(request, cancellationToken);
+
     [HttpGet("{id:guid}")]
     [EndpointSummary("View an investment")]
     [EndpointDescription("Initial amount, gains and expected balance. Frozen at the withdrawal date once withdrawn.")]
