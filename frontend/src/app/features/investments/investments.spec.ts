@@ -3,10 +3,11 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { DEFAULT_CURRENCY_CODE, Type } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { vi } from 'vitest';
 import { businessToday } from '../../core/business-date';
-import { Investment, Withdrawal } from '../../core/models';
+import { GrowthPoint, Investment, InvestmentDetails, Rules, Withdrawal } from '../../core/models';
+import { GrowthChart } from './growth-chart';
 import { InvestmentDetail } from './investment-detail';
 import { InvestmentForm } from './investment-form';
 import { InvestmentList } from './investment-list';
@@ -30,6 +31,29 @@ const WITHDRAWAL: Withdrawal = {
   taxRate: 0.185,
   taxAmount: 11.88,
   netAmount: 1052.34,
+};
+
+const DETAILS: InvestmentDetails = {
+  ...ACTIVE,
+  accrual: {
+    monthlyGainRate: 0.0052,
+    completedMonths: 12,
+    nextGainDate: '2026-02-10',
+    nextGainAmount: 5.53,
+    withdrawalToday: WITHDRAWAL,
+  },
+};
+const WITHDRAWN: InvestmentDetails = { ...ACTIVE, status: 'Withdrawn', withdrawal: WITHDRAWAL, accrual: null };
+const GROWTH: GrowthPoint[] = [
+  { date: '2025-01-10', balance: 1000, projected: false },
+  { date: '2025-02-10', balance: 1005.2, projected: false },
+  { date: '2025-03-10', balance: 1010.43, projected: true },
+];
+const RULES: Rules = {
+  monthlyGainRate: 0.0052,
+  taxRateUnderOneYear: 0.225,
+  taxRateOneToTwoYears: 0.185,
+  taxRateOverTwoYears: 0.15,
 };
 
 const dialogRef = { close: vi.fn(), disableClose: false };
@@ -94,6 +118,50 @@ describe('InvestmentList', () => {
     expect(text(fixture)).toContain('No investments yet.');
   });
 
+  it('asks for the status and the order of the URL', async () => {
+    const fixture = render(InvestmentList, { status: 'Withdrawn', sort: 'highest' });
+    http.expectOne('/api/owners').flush([]);
+    http
+      .expectOne('/api/investments?page=1&pageSize=10&status=Withdrawn&sortBy=Amount&sortDirection=Desc')
+      .flush(page([]));
+    await fixture.whenStable();
+
+    const value = (id: string) => (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>(id)!.value;
+    expect(value('#status-filter')).toBe('Withdrawn');
+    expect(value('#sort')).toBe('highest');
+    expect(text(fixture)).toContain('No investments match these filters.');
+  });
+
+  it('ignores a status and an order that do not exist', async () => {
+    const fixture = render(InvestmentList, { status: 'abc', sort: 'abc' });
+    http.expectOne('/api/owners').flush([]);
+    http.expectOne('/api/investments?page=1&pageSize=10').flush(page([ACTIVE]));
+    await fixture.whenStable();
+
+    expect(text(fixture)).toContain('Ana Souza');
+  });
+
+  it.each([
+    ['#owner-filter', 'ana', 'ownerId'],
+    ['#status-filter', 'Active', 'status'],
+    ['#sort', 'oldest', 'sort'],
+  ])('keeps the other filters and goes back to the first page when %s changes', async (selector, value, param) => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const fixture = render(InvestmentList);
+    http.expectOne('/api/owners').flush([ANA]);
+    http.expectOne('/api/investments?page=1&pageSize=10').flush(page([ACTIVE]));
+    await fixture.whenStable();
+
+    const select = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>(selector)!;
+    select.value = value;
+    select.dispatchEvent(new Event('change'));
+
+    expect(navigate).toHaveBeenCalledWith([], {
+      queryParams: { [param]: value, page: null },
+      queryParamsHandling: 'merge',
+    });
+  });
+
   it('offers a retry when the API fails', async () => {
     const fixture = render(InvestmentList);
     http.expectOne('/api/owners').flush([]);
@@ -112,7 +180,8 @@ describe('InvestmentList', () => {
 describe('InvestmentDetail', () => {
   it('shows the final taxed amount of a withdrawn investment and no withdraw button', async () => {
     const fixture = render(InvestmentDetail, { id: 'inv' });
-    http.expectOne('/api/investments/inv').flush({ ...ACTIVE, status: 'Withdrawn', withdrawal: WITHDRAWAL });
+    http.expectOne('/api/investments/inv').flush(WITHDRAWN);
+    http.expectOne('/api/investments/inv/growth').flush(GROWTH);
     await fixture.whenStable();
 
     expect(text(fixture)).toContain('R$1,052.34');
@@ -120,12 +189,90 @@ describe('InvestmentDetail', () => {
     expect(button(fixture, 'Withdraw investment')).toBeUndefined();
   });
 
+  it('shows the rate, the next gain and what a withdrawal today would pay', async () => {
+    const fixture = render(InvestmentDetail, { id: 'inv' });
+    http.expectOne('/api/investments/inv').flush(DETAILS);
+    http.expectOne('/api/investments/inv/growth').flush(GROWTH);
+    await fixture.whenStable();
+
+    expect(text(fixture)).toContain('0.52%');
+    expect(text(fixture)).toContain('12 months');
+    expect(text(fixture)).toContain('Feb 10, 2026');
+    expect(text(fixture)).toContain('R$5.53');
+    expect(text(fixture)).toContain('R$11.88');
+    expect(text(fixture)).toContain('R$1,052.34');
+  });
+
+  it('keeps working when only the chart fails', async () => {
+    const fixture = render(InvestmentDetail, { id: 'inv' });
+    http.expectOne('/api/investments/inv').flush(DETAILS);
+    http.expectOne('/api/investments/inv/growth').flush(null, { status: 500, statusText: 'Error' });
+    await fixture.whenStable();
+
+    expect(text(fixture)).toContain('R$1,064.22');
+    expect(text(fixture)).toContain('The chart could not be loaded.');
+  });
+
   it('explains when the investment does not exist', async () => {
     const fixture = render(InvestmentDetail, { id: 'x' });
     http.expectOne('/api/investments/x').flush({}, { status: 404, statusText: 'Not Found' });
+    http.expectOne('/api/investments/x/growth').flush({}, { status: 404, statusText: 'Not Found' });
     await fixture.whenStable();
 
     expect(text(fixture)).toContain('This investment does not exist.');
+  });
+});
+
+describe('GrowthChart', () => {
+  const element = (fixture: ComponentFixture<unknown>) => fixture.nativeElement as HTMLElement;
+
+  it('separates what was paid from the projection', async () => {
+    const fixture = render(GrowthChart, { points: GROWTH });
+    await fixture.whenStable();
+
+    expect(element(fixture).querySelectorAll('svg path')).toHaveLength(2);
+    expect(text(fixture)).toContain('Balance so far');
+    expect(text(fixture)).toContain('Projection');
+  });
+
+  it('has no projection for a withdrawn investment', async () => {
+    const fixture = render(GrowthChart, { points: GROWTH.slice(0, 2) });
+    await fixture.whenStable();
+
+    expect(element(fixture).querySelectorAll('svg path')).toHaveLength(1);
+    expect(text(fixture)).not.toContain('Projection');
+  });
+
+  it('explains when there is nothing to draw', async () => {
+    const fixture = render(GrowthChart, { points: GROWTH.slice(0, 1) });
+    await fixture.whenStable();
+
+    expect(element(fixture).querySelector('svg')).toBeNull();
+    expect(text(fixture)).toContain('No monthly gain was paid');
+  });
+
+  it('reads each month with the keyboard', async () => {
+    const fixture = render(GrowthChart, { points: GROWTH });
+    const press = async (key: string) => {
+      element(fixture).querySelector('[tabindex="0"]')!.dispatchEvent(new KeyboardEvent('keydown', { key }));
+      await fixture.whenStable();
+      return element(fixture).querySelector('[data-readout]')?.textContent ?? '';
+    };
+
+    expect(await press('Home')).toContain('R$1,000.00');
+    expect(await press('ArrowRight')).toContain('R$1,005.20');
+    expect(await press('End')).toContain('R$1,010.43');
+    expect(await press('ArrowRight')).toContain('R$1,010.43');
+    expect(await press('Escape')).toBe('');
+  });
+
+  it('offers the same values as a table', async () => {
+    const fixture = render(GrowthChart, { points: GROWTH });
+    button(fixture, 'Show as table').click();
+    await fixture.whenStable();
+
+    expect(element(fixture).querySelectorAll('tbody tr')).toHaveLength(3);
+    expect(element(fixture).querySelector('tbody')!.textContent).toContain('Feb 10, 2025');
   });
 });
 
@@ -194,6 +341,7 @@ describe('InvestmentForm', () => {
   async function fill(values: { owner?: string; amount?: string; date?: string }) {
     const fixture = render(InvestmentForm);
     http.expectOne('/api/owners').flush([ANA]);
+    http.expectOne('/api/rules').flush(RULES);
     await fixture.whenStable();
 
     const element = fixture.nativeElement as HTMLElement;
@@ -207,14 +355,73 @@ describe('InvestmentForm', () => {
     set('#owner', values.owner, 'change');
     set('#amount', values.amount, 'input');
     set('#creation-date', values.date, 'input');
+    TestBed.tick();
+    const simulations = http.match((request) => request.url === '/api/investments/simulation');
+    simulations.filter((request) => !request.cancelled).forEach((request) => request.flush(WITHDRAWAL));
+    await fixture.whenStable();
+
+    return { fixture, simulations };
+  }
+
+  async function submit(values: { owner?: string; amount?: string; date?: string }) {
+    const { fixture } = await fill(values);
     button(fixture, 'Create investment').click();
     await fixture.whenStable();
 
     return fixture;
   }
 
+  it('shows the monthly rate', async () => {
+    const { fixture } = await fill({});
+
+    expect(text(fixture)).toContain('0.52% per month');
+  });
+
+  it('simulates 12 months with the typed values', async () => {
+    const { fixture, simulations } = await fill({ amount: '1000', date: '2025-01-10' });
+
+    expect(simulations.at(-1)!.request.params.toString()).toBe('amount=1000&creationDate=2025-01-10&months=12');
+    expect(text(fixture)).toContain('R$1,052.34');
+    expect(text(fixture)).toContain('Jan 10, 2026');
+  });
+
+  it('simulates another term', async () => {
+    const { fixture } = await fill({ amount: '1000', date: '2025-01-10' });
+
+    const months = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('#months')!;
+    months.value = '24';
+    months.dispatchEvent(new Event('input'));
+    TestBed.tick();
+
+    http
+      .expectOne('/api/investments/simulation?amount=1000&creationDate=2025-01-10&months=24')
+      .flush({ ...WITHDRAWAL, netAmount: 1108.04 });
+    await fixture.whenStable();
+    expect(text(fixture)).toContain('R$1,108.04');
+  });
+
+  it.each(['0', '601', '1.5', ''])('does not simulate a term of "%s" months', async (value) => {
+    const { fixture } = await fill({ amount: '1000', date: '2025-01-10' });
+
+    const months = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('#months')!;
+    months.value = value;
+    months.dispatchEvent(new Event('input'));
+    TestBed.tick();
+    await fixture.whenStable();
+
+    http.expectNone((request) => request.url === '/api/investments/simulation');
+    expect(text(fixture)).toContain('between 1 and 600');
+  });
+
+  it('does not simulate an invalid amount', async () => {
+    const { fixture, simulations } = await fill({ amount: '-1', date: '2025-01-10' });
+
+    expect(simulations).toHaveLength(0);
+    expect(text(fixture)).toContain('Enter an amount and a date');
+  });
+
   it('sends valid data once', async () => {
-    const fixture = await fill({ owner: 'ana', amount: '1000.50', date: '2025-01-10' });
+    const fixture = await submit({ owner: 'ana', amount: '1000.50', date: '2025-01-10' });
     button(fixture, 'Creating').click();
 
     const request = http.expectOne('/api/investments');
@@ -229,7 +436,7 @@ describe('InvestmentForm', () => {
     [{ owner: 'ana', amount: '1', date: '2999-01-01' }, 'today or a past date'],
     [{ owner: 'ana', amount: '1', date: '' }, 'today or a past date'],
   ])('does not send %o', async (values, message) => {
-    const fixture = await fill(values);
+    const fixture = await submit(values);
 
     http.expectNone('/api/investments');
     expect(text(fixture)).toContain(message);
