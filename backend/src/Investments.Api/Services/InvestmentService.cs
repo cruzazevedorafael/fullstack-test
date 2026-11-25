@@ -16,6 +16,8 @@ public sealed class InvestmentService(
     InvestmentRules rules,
     IInvestmentNotifier notifier)
 {
+    private const int ProjectedMonths = 12;
+
     public async Task<PagedResponse<InvestmentResponse>> ListAsync(ListInvestmentsRequest request, CancellationToken cancellationToken)
     {
         var query = db.Investments.AsNoTracking();
@@ -39,10 +41,21 @@ public sealed class InvestmentService(
         return new PagedResponse<InvestmentResponse>(items, request.Page, request.PageSize, total);
     }
 
-    public async Task<InvestmentResponse> GetAsync(Guid id, CancellationToken cancellationToken) =>
+    public async Task<InvestmentDetailsResponse> GetAsync(Guid id, CancellationToken cancellationToken) =>
         ToResponse(await FindAsync(id, cancellationToken));
 
-    public async Task<InvestmentResponse> CreateAsync(CreateInvestmentRequest request, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<GrowthPointResponse>> GetGrowthAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var investment = await FindAsync(id, cancellationToken);
+
+        return [.. investment.GetGrowth(calendar.Today, ProjectedMonths, rules).Select(p => new GrowthPointResponse(p.Date, p.Balance, p.Projected))];
+    }
+
+    public WithdrawalResponse Simulate(SimulationRequest request) =>
+        WithdrawalResponse.From(Investment.Simulate(
+            request.Amount!.Value, request.CreationDate!.Value, request.Months!.Value, calendar.Today, rules));
+
+    public async Task<InvestmentDetailsResponse> CreateAsync(CreateInvestmentRequest request, CancellationToken cancellationToken)
     {
         var owner = await db.Owners.FindAsync([request.OwnerId!.Value], cancellationToken)
             ?? throw new NotFoundException("owner.not_found", "Owner not found.");
@@ -63,7 +76,7 @@ public sealed class InvestmentService(
         return WithdrawalResponse.From(investment.QuoteWithdrawal(date, calendar.Today, rules));
     }
 
-    public async Task<InvestmentResponse> WithdrawAsync(Guid id, DateOnly date, CancellationToken cancellationToken)
+    public async Task<InvestmentDetailsResponse> WithdrawAsync(Guid id, DateOnly date, CancellationToken cancellationToken)
     {
         var investment = await FindAsync(id, cancellationToken);
         investment.Withdraw(date, calendar.Today, rules);
@@ -87,6 +100,6 @@ public sealed class InvestmentService(
         await db.Investments.Include(i => i.Owner).FirstOrDefaultAsync(i => i.Id == id, cancellationToken)
             ?? throw new NotFoundException("investment.not_found", "Investment not found.");
 
-    private InvestmentResponse ToResponse(Investment investment) =>
-        InvestmentResponse.From(investment, calendar.Today, rules);
+    private InvestmentDetailsResponse ToResponse(Investment investment) =>
+        InvestmentDetailsResponse.From(investment, calendar.Today, rules);
 }

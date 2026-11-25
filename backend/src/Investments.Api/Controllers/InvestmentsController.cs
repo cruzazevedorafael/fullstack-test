@@ -22,17 +22,33 @@ public sealed class InvestmentsController(InvestmentService investments) : Contr
     [HttpGet("{id:guid}")]
     [EndpointSummary("View an investment")]
     [EndpointDescription("Initial amount, gains and expected balance. Frozen at the withdrawal date once withdrawn.")]
-    [ProducesResponseType<InvestmentResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<InvestmentDetailsResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
-    public Task<InvestmentResponse> Get(Guid id, CancellationToken cancellationToken) =>
+    public Task<InvestmentDetailsResponse> Get(Guid id, CancellationToken cancellationToken) =>
         investments.GetAsync(id, cancellationToken);
+
+    [HttpGet("{id:guid}/growth")]
+    [EndpointSummary("View the growth of an investment")]
+    [EndpointDescription("Balance after each monthly gain, followed by a projection of 12 months while the investment is active.")]
+    [ProducesResponseType<IReadOnlyList<GrowthPointResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public Task<IReadOnlyList<GrowthPointResponse>> GetGrowth(Guid id, CancellationToken cancellationToken) =>
+        investments.GetGrowthAsync(id, cancellationToken);
+
+    [HttpGet("simulation")]
+    [EndpointSummary("Simulate an investment")]
+    [EndpointDescription("Gains, taxes and net amount of a withdrawal after a number of months. Nothing is created.")]
+    [ProducesResponseType<WithdrawalResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    public WithdrawalResponse Simulate([FromQuery] SimulationRequest request) =>
+        investments.Simulate(request);
 
     [HttpPost]
     [EndpointSummary("Create an investment")]
-    [ProducesResponseType<InvestmentResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<InvestmentDetailsResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
-    public async Task<ActionResult<InvestmentResponse>> Create(CreateInvestmentRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<InvestmentDetailsResponse>> Create(CreateInvestmentRequest request, CancellationToken cancellationToken)
     {
         var investment = await investments.CreateAsync(request, cancellationToken);
         return CreatedAtAction(nameof(Get), new { id = investment.Id }, investment);
@@ -51,10 +67,10 @@ public sealed class InvestmentsController(InvestmentService investments) : Contr
     [HttpPost("{id:guid}/withdrawal")]
     [EndpointSummary("Withdraw an investment")]
     [EndpointDescription("Withdraws the whole balance. Taxes apply only to the gains. Can't be repeated or undone.")]
-    [ProducesResponseType<InvestmentResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<InvestmentDetailsResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
-    public Task<InvestmentResponse> Withdraw(Guid id, WithdrawRequest request, CancellationToken cancellationToken) =>
+    public Task<InvestmentDetailsResponse> Withdraw(Guid id, WithdrawRequest request, CancellationToken cancellationToken) =>
         investments.WithdrawAsync(id, request.Date!.Value, cancellationToken);
 }

@@ -113,6 +113,97 @@ public sealed class InvestmentsApiTests(ApiFactory factory) : IClassFixture<ApiF
         await AssertProblemAsync(response, HttpStatusCode.NotFound, "investment.not_found");
     }
 
+    [Fact]
+    public async Task View_shows_the_next_gain_and_a_withdrawal_today_while_active()
+    {
+        var id = await CreateInvestmentAsync(1000m, "2025-06-15");
+
+        var accrual = (await GetJsonAsync($"/api/investments/{id}")).GetProperty("accrual");
+
+        Assert.Equal(0.0052m, accrual.GetProperty("monthlyGainRate").GetDecimal());
+        Assert.Equal(12, accrual.GetProperty("completedMonths").GetInt32());
+        Assert.Equal("2026-07-15", accrual.GetProperty("nextGainDate").GetString());
+        Assert.Equal(5.53m, accrual.GetProperty("nextGainAmount").GetDecimal());
+        Assert.Equal(1052.34m, accrual.GetProperty("withdrawalToday").GetProperty("netAmount").GetDecimal());
+    }
+
+    [Fact]
+    public async Task View_has_no_accrual_after_the_withdrawal()
+    {
+        var id = await CreateInvestmentAsync(1000m, "2025-01-10");
+
+        var withdrawn = await (await WithdrawAsync(id, "2026-01-10")).Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(JsonValueKind.Null, withdrawn.GetProperty("accrual").ValueKind);
+        Assert.Equal(JsonValueKind.Null, (await GetJsonAsync($"/api/investments/{id}")).GetProperty("accrual").ValueKind);
+    }
+
+    [Fact]
+    public async Task Growth_has_the_paid_months_and_a_one_year_projection()
+    {
+        var id = await CreateInvestmentAsync(1000m, "2026-03-15");
+
+        var points = (await GetJsonAsync($"/api/investments/{id}/growth")).EnumerateArray().ToList();
+
+        Assert.Equal(4 + 12, points.Count);
+        Assert.Equal(4, points.Count(p => !p.GetProperty("projected").GetBoolean()));
+        Assert.Equal("2026-03-15", points[0].GetProperty("date").GetString());
+        Assert.Equal(1000m, points[0].GetProperty("balance").GetDecimal());
+        Assert.Equal("2027-06-15", points[^1].GetProperty("date").GetString());
+    }
+
+    [Fact]
+    public async Task Growth_of_an_unknown_investment_is_not_found()
+    {
+        await AssertProblemAsync(await _client.GetAsync($"/api/investments/{Guid.NewGuid()}/growth"), HttpStatusCode.NotFound, "investment.not_found");
+    }
+
+    // ---------- rules and simulation ----------
+
+    [Fact]
+    public async Task Rules_expose_the_configured_rates()
+    {
+        var rules = await GetJsonAsync("/api/rules");
+
+        Assert.Equal(0.0052m, rules.GetProperty("monthlyGainRate").GetDecimal());
+        Assert.Equal(0.225m, rules.GetProperty("taxRateUnderOneYear").GetDecimal());
+        Assert.Equal(0.185m, rules.GetProperty("taxRateOneToTwoYears").GetDecimal());
+        Assert.Equal(0.15m, rules.GetProperty("taxRateOverTwoYears").GetDecimal());
+    }
+
+    [Fact]
+    public async Task Simulation_returns_the_taxed_values_and_creates_nothing()
+    {
+        var before = (await GetJsonAsync("/api/investments")).GetProperty("totalItems").GetInt32();
+
+        var result = await GetJsonAsync("/api/investments/simulation?amount=1000.00&creationDate=2026-06-15&months=12");
+
+        Assert.Equal("2027-06-15", result.GetProperty("date").GetString());
+        Assert.Equal(1064.22m, result.GetProperty("grossAmount").GetDecimal());
+        Assert.Equal(0.185m, result.GetProperty("taxRate").GetDecimal());
+        Assert.Equal(1052.34m, result.GetProperty("netAmount").GetDecimal());
+        Assert.Equal(before, (await GetJsonAsync("/api/investments")).GetProperty("totalItems").GetInt32());
+    }
+
+    [Theory]
+    [InlineData("amount=1000&creationDate=2026-06-15&months=0", "simulation.months_out_of_range")]
+    [InlineData("amount=1000&creationDate=2026-06-15&months=601", "simulation.months_out_of_range")]
+    [InlineData("amount=-1&creationDate=2026-06-15&months=12", "investment.amount_not_positive")]
+    [InlineData("amount=1000&creationDate=2026-06-16&months=12", "investment.creation_in_future")]
+    public async Task Simulation_rejects_broken_rules(string query, string code)
+    {
+        await AssertProblemAsync(await _client.GetAsync($"/api/investments/simulation?{query}"), HttpStatusCode.BadRequest, code);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("amount=abc&creationDate=2026-06-15&months=12")]
+    [InlineData("amount=1000&months=12")]
+    public async Task Simulation_rejects_missing_or_malformed_parameters(string query)
+    {
+        Assert.Equal(HttpStatusCode.BadRequest, (await _client.GetAsync($"/api/investments/simulation?{query}")).StatusCode);
+    }
+
     // ---------- withdrawal ----------
 
     [Fact]
