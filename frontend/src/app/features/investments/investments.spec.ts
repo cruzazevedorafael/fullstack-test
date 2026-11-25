@@ -1,4 +1,3 @@
-import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { DEFAULT_CURRENCY_CODE, Type } from '@angular/core';
@@ -11,7 +10,7 @@ import { GrowthChart } from './growth-chart';
 import { InvestmentDetail } from './investment-detail';
 import { InvestmentForm } from './investment-form';
 import { InvestmentList } from './investment-list';
-import { WithdrawDialog } from './withdraw-dialog';
+import { InvestmentWithdraw } from './investment-withdraw';
 
 const ANA = { id: 'ana', name: 'Ana Souza', email: 'ana@example.com' };
 const ACTIVE: Investment = {
@@ -56,20 +55,15 @@ const RULES: Rules = {
   taxRateOverTwoYears: 0.15,
 };
 
-const dialogRef = { close: vi.fn(), disableClose: false };
 let http: HttpTestingController;
 
 beforeEach(() => {
-  dialogRef.close.mockReset();
-  dialogRef.disableClose = false;
   TestBed.configureTestingModule({
     providers: [
       provideHttpClient(),
       provideHttpClientTesting(),
       provideRouter([]),
       { provide: DEFAULT_CURRENCY_CODE, useValue: 'BRL' },
-      { provide: DIALOG_DATA, useValue: ACTIVE },
-      { provide: DialogRef, useValue: dialogRef },
     ],
   });
   http = TestBed.inject(HttpTestingController);
@@ -97,9 +91,58 @@ describe('InvestmentList', () => {
     totalPages,
   });
 
+  const flushSummary = (params = '') =>
+    http
+      .expectOne((request) => request.urlWithParams.startsWith('/api/investments/summary' + params))
+      .flush({ activeBalance: 8250, activeInvestments: 4 });
+
+  it('shows the total balance of the chosen person and period', async () => {
+    const fixture = render(InvestmentList, {
+      ownerId: 'ana',
+      from: '2025-01-01',
+      to: '2025-12-31',
+      status: 'Withdrawn',
+    });
+    http.expectOne('/api/owners').flush([ANA]);
+    flushSummary('?ownerId=ana&from=2025-01-01&to=2025-12-31');
+    http
+      .expectOne('/api/investments?page=1&pageSize=10&ownerId=ana&from=2025-01-01&to=2025-12-31&status=Withdrawn')
+      .flush(page([]));
+    await fixture.whenStable();
+
+    expect(text(fixture)).toContain('R$8,250.00');
+    expect(text(fixture)).toContain('4 active investments');
+  });
+
+  it('ignores a period that is not made of dates', async () => {
+    const fixture = render(InvestmentList, { from: 'abc', to: '2025-13-45' });
+    http.expectOne('/api/owners').flush([]);
+    flushSummary();
+    http.expectOne('/api/investments?page=1&pageSize=10').flush(page([ACTIVE]));
+    await fixture.whenStable();
+
+    expect(text(fixture)).toContain('Ana Souza');
+  });
+
+  it('only offers the withdrawal of active investments', async () => {
+    const fixture = render(InvestmentList);
+    http.expectOne('/api/owners').flush([]);
+    flushSummary();
+    http
+      .expectOne('/api/investments?page=1&pageSize=10')
+      .flush(page([ACTIVE, { ...ACTIVE, id: 'old', status: 'Withdrawn' }]));
+    await fixture.whenStable();
+
+    const links = [...(fixture.nativeElement as HTMLElement).querySelectorAll('tbody a')].map((a) =>
+      a.getAttribute('href'),
+    );
+    expect(links).toEqual(['/investments/inv', '/investments/inv/withdraw', '/investments/old']);
+  });
+
   it('asks for the page and person of the URL and shows the data', async () => {
     const fixture = render(InvestmentList, { page: '2', ownerId: 'ana' });
     http.expectOne('/api/owners').flush([ANA]);
+    flushSummary();
     http.expectOne('/api/investments?page=2&pageSize=10&ownerId=ana').flush(page([ACTIVE]));
     await fixture.whenStable();
 
@@ -112,6 +155,7 @@ describe('InvestmentList', () => {
   it('falls back to the first page when the URL is invalid', async () => {
     const fixture = render(InvestmentList, { page: 'abc' });
     http.expectOne('/api/owners').flush([]);
+    flushSummary();
     http.expectOne('/api/investments?page=1&pageSize=10').flush(page([]));
     await fixture.whenStable();
 
@@ -121,6 +165,7 @@ describe('InvestmentList', () => {
   it('asks for the status and the order of the URL', async () => {
     const fixture = render(InvestmentList, { status: 'Withdrawn', sort: 'highest' });
     http.expectOne('/api/owners').flush([]);
+    flushSummary();
     http
       .expectOne('/api/investments?page=1&pageSize=10&status=Withdrawn&sortBy=Amount&sortDirection=Desc')
       .flush(page([]));
@@ -135,6 +180,7 @@ describe('InvestmentList', () => {
   it('ignores a status and an order that do not exist', async () => {
     const fixture = render(InvestmentList, { status: 'abc', sort: 'abc' });
     http.expectOne('/api/owners').flush([]);
+    flushSummary();
     http.expectOne('/api/investments?page=1&pageSize=10').flush(page([ACTIVE]));
     await fixture.whenStable();
 
@@ -145,16 +191,20 @@ describe('InvestmentList', () => {
     ['#owner-filter', 'ana', 'ownerId'],
     ['#status-filter', 'Active', 'status'],
     ['#sort', 'oldest', 'sort'],
+    ['#from', '2025-01-01', 'from'],
+    ['#to', '2025-12-31', 'to'],
   ])('keeps the other filters and goes back to the first page when %s changes', async (selector, value, param) => {
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     const fixture = render(InvestmentList);
     http.expectOne('/api/owners').flush([ANA]);
+    flushSummary();
     http.expectOne('/api/investments?page=1&pageSize=10').flush(page([ACTIVE]));
     await fixture.whenStable();
 
     const select = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>(selector)!;
     select.value = value;
     select.dispatchEvent(new Event('change'));
+    await Promise.resolve();
 
     expect(navigate).toHaveBeenCalledWith([], {
       queryParams: { [param]: value, page: null },
@@ -162,9 +212,30 @@ describe('InvestmentList', () => {
     });
   });
 
+  it('keeps both filters when they change in a row', async () => {
+    const router = TestBed.inject(Router);
+    const fixture = render(InvestmentList);
+    http.expectOne('/api/owners').flush([ANA]);
+    flushSummary();
+    http.expectOne('/api/investments?page=1&pageSize=10').flush(page([ACTIVE]));
+    await fixture.whenStable();
+
+    for (const [selector, value] of [
+      ['#from', '2025-01-01'],
+      ['#to', '2025-12-31'],
+    ]) {
+      const field = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(selector)!;
+      field.value = value;
+      field.dispatchEvent(new Event('change'));
+    }
+
+    await vi.waitFor(() => expect(router.url).toBe('/?from=2025-01-01&to=2025-12-31'));
+  });
+
   it('offers a retry when the API fails', async () => {
     const fixture = render(InvestmentList);
     http.expectOne('/api/owners').flush([]);
+    flushSummary();
     http.expectOne('/api/investments?page=1&pageSize=10').flush(null, { status: 500, statusText: 'Error' });
     await fixture.whenStable();
 
@@ -276,23 +347,45 @@ describe('GrowthChart', () => {
   });
 });
 
-describe('WithdrawDialog', () => {
+describe('InvestmentWithdraw', () => {
   const previewUrl = (date: string) => `/api/investments/inv/withdrawal-preview?date=${date}`;
 
-  async function chooseDate(fixture: ComponentFixture<unknown>, date: string) {
-    const input = (fixture.nativeElement as HTMLElement).querySelector('input')!;
+  async function open(details = DETAILS) {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const fixture = render(InvestmentWithdraw, { id: 'inv' });
+    http.expectOne('/api/investments/inv').flush(details);
+    await Promise.resolve();
+    TestBed.tick();
+
+    return { fixture, navigate };
+  }
+
+  function chooseDate(fixture: ComponentFixture<unknown>, date: string) {
+    const input = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('#withdraw-date')!;
     input.value = date;
     input.dispatchEvent(new Event('input'));
     TestBed.tick();
   }
 
+  it('shows the investment in fields that can not be changed', async () => {
+    const { fixture } = await open();
+    http.expectOne(previewUrl(businessToday())).flush(WITHDRAWAL);
+    await fixture.whenStable();
+
+    const field = (id: string) => (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(id)!;
+    expect(field('#withdraw-id').value).toBe('inv');
+    expect(field('#withdraw-owner').value).toBe('Ana Souza');
+    expect(field('#withdraw-amount').value).toBe('R$1,000.00');
+    expect(['#withdraw-id', '#withdraw-owner', '#withdraw-amount'].every((id) => field(id).readOnly)).toBe(true);
+  });
+
   it('previews today, lets the date change and withdraws with the chosen date', async () => {
-    const fixture = render(WithdrawDialog);
+    const { fixture, navigate } = await open();
     expect(button(fixture, 'Confirm').disabled).toBe(true);
     http.expectOne(previewUrl(businessToday())).flush(WITHDRAWAL);
     await fixture.whenStable();
 
-    await chooseDate(fixture, '2026-01-10');
+    chooseDate(fixture, '2026-01-10');
     expect(button(fixture, 'Confirm').disabled).toBe(true); // the old preview can't be confirmed
     http.expectOne(previewUrl('2026-01-10')).flush(WITHDRAWAL);
     await fixture.whenStable();
@@ -302,14 +395,13 @@ describe('WithdrawDialog', () => {
     button(fixture, 'Confirm')?.click(); // a double click sends a single request
     const request = http.expectOne('/api/investments/inv/withdrawal');
     expect(request.request.body).toEqual({ date: '2026-01-10' });
-    const updated = { ...ACTIVE, status: 'Withdrawn', withdrawal: WITHDRAWAL };
-    request.flush(updated);
+    request.flush(WITHDRAWN);
 
-    expect(dialogRef.close).toHaveBeenCalledExactlyOnceWith(updated);
+    expect(navigate).toHaveBeenCalledExactlyOnceWith(['/investments', 'inv']);
   });
 
   it('shows the rule broken by the date and blocks the confirmation', async () => {
-    const fixture = render(WithdrawDialog);
+    const { fixture } = await open();
     http
       .expectOne(previewUrl(businessToday()))
       .flush({ detail: "Can't be in the future." }, { status: 400, statusText: 'Bad Request' });
@@ -319,21 +411,35 @@ describe('WithdrawDialog', () => {
     expect(button(fixture, 'Confirm').disabled).toBe(true);
   });
 
-  it('stays open with the reason when the withdrawal is refused', async () => {
-    const fixture = render(WithdrawDialog);
+  it('stays on the page with the reason when the withdrawal is refused', async () => {
+    const { fixture, navigate } = await open();
     http.expectOne(previewUrl(businessToday())).flush(WITHDRAWAL);
     await fixture.whenStable();
 
     button(fixture, 'Confirm').click();
-    expect(dialogRef.disableClose).toBe(true);
     http
       .expectOne('/api/investments/inv/withdrawal')
       .flush({ detail: 'Already withdrawn.' }, { status: 409, statusText: 'Conflict' });
     await fixture.whenStable();
 
     expect(text(fixture)).toContain('Already withdrawn.');
-    expect(dialogRef.close).not.toHaveBeenCalled();
-    expect(dialogRef.disableClose).toBe(false);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('does not offer a second withdrawal', async () => {
+    const { fixture } = await open(WITHDRAWN);
+    await fixture.whenStable();
+
+    expect(text(fixture)).toContain('already been withdrawn');
+    expect(button(fixture, 'Confirm')).toBeUndefined();
+  });
+
+  it('explains when the investment does not exist', async () => {
+    const fixture = render(InvestmentWithdraw, { id: 'x' });
+    http.expectOne('/api/investments/x').flush({}, { status: 404, statusText: 'Not Found' });
+    await fixture.whenStable();
+
+    expect(text(fixture)).toContain('This investment does not exist.');
   });
 });
 
