@@ -1,90 +1,132 @@
-<div class="flex flex-wrap items-end justify-between gap-4">
-  <h1 class="text-3xl font-semibold tracking-tight">Investments</h1>
-  <a routerLink="/investments/new" class="btn btn-primary">New investment</a>
-</div>
+<section class="card max-w-sm" aria-labelledby="balance-title" [attr.aria-busy]="summary.isLoading()">
+  <h2 id="balance-title" class="font-semibold">Balance</h2>
+  @if (summary.error()) {
+    <p class="field-error">The balance could not be loaded.</p>
+  } @else if (summary.hasValue()) {
+    @let total = summary.value();
+    <p class="mt-3 text-right text-3xl font-semibold tracking-tight break-words text-gain">
+      {{ total.activeBalance | currency }}
+    </p>
+    <p class="mt-1 text-right text-sm text-muted">
+      {{ total.activeInvestments }} active {{ total.activeInvestments === 1 ? 'investment' : 'investments' }}
+    </p>
+  } @else {
+    <div class="mt-3 h-15 animate-pulse rounded-md bg-line motion-reduce:animate-none"></div>
+  }
+</section>
 
-<div class="mt-6 grid gap-4 sm:grid-cols-3">
-  <div class="min-w-0">
-    <label for="owner-filter" class="field-label">Person</label>
-    <select #owner id="owner-filter" class="field" (change)="change('ownerId', owner.value)">
-      <option value="" [selected]="!ownerId()">Everyone</option>
-      @if (owners.hasValue()) {
-        @for (person of owners.value(); track person.id) {
-          <option [value]="person.id" [selected]="person.id === ownerId()">
-            {{ person.name }} ({{ person.email }})
-          </option>
-        }
-      }
-    </select>
-    @if (owners.error()) {
-      <p class="field-error">The list of people could not be loaded.</p>
-    }
+<section class="card mt-6" aria-labelledby="list-title">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 id="list-title" class="text-xl font-semibold">Investments</h1>
+    <a routerLink="/investments/new" class="btn btn-primary">New investment</a>
   </div>
 
-  <div class="min-w-0">
-    <label for="status-filter" class="field-label">Status</label>
-    <select #state id="status-filter" class="field" (change)="change('status', state.value)">
-      <option value="" [selected]="!status()">All</option>
-      @for (option of statuses; track option) {
-        <option [value]="option" [selected]="option === status()">{{ option }}</option>
-      }
-    </select>
-  </div>
-
-  <div class="min-w-0">
-    <label for="sort" class="field-label">Sort by</label>
-    <select #order id="sort" class="field" (change)="change('sort', order.value)">
-      @for (option of sorts; track option.id) {
-        <option [value]="option.id" [selected]="option.id === sort()">{{ option.label }}</option>
-      }
-    </select>
-  </div>
-</div>
-
-<div class="mt-6" [attr.aria-busy]="list.isLoading()">
-  @if (error()) {
-    <div class="alert flex flex-wrap items-center justify-between gap-3" role="alert">
-      <span>{{ error() }}</span>
-      <button type="button" class="btn btn-secondary text-ink" (click)="list.reload()">Try again</button>
+  <div class="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-5">
+    <div class="min-w-0">
+      <label for="from" class="field-label">Start date</label>
+      <input #start id="from" type="date" class="field" [value]="from() ?? ''" (change)="change('from', start.value)" />
     </div>
-  } @else if (list.hasValue()) {
-    @let data = list.value();
-    @if (data.items.length > 0) {
-      <!-- Wide screens: table -->
-      <div class="hidden overflow-x-auto rounded-lg border border-line bg-surface md:block">
-        <table class="num w-full text-left">
-          <thead class="border-b border-line text-sm text-muted">
-            <tr>
-              <th scope="col" class="px-4 py-3 font-medium">Owner</th>
-              <th scope="col" class="px-4 py-3 font-medium">Date</th>
-              <th scope="col" class="px-4 py-3 text-right font-medium">Invested</th>
-              <th scope="col" class="px-4 py-3 text-right font-medium">Balance</th>
-              <th scope="col" class="px-4 py-3 font-medium">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (investment of data.items; track investment.id) {
-              <tr class="border-b border-line last:border-0 hover:bg-bg">
-                <td class="px-4 py-3">
-                  <a [routerLink]="['/investments', investment.id]" class="font-medium text-accent hover:underline">{{
-                    investment.owner.name
-                  }}</a>
-                </td>
-                <td class="px-4 py-3">{{ investment.creationDate | date: 'mediumDate' }}</td>
-                <td class="px-4 py-3 text-right">{{ investment.initialAmount | currency }}</td>
-                <td class="px-4 py-3 text-right font-medium">{{ investment.expectedBalance | currency }}</td>
-                <td class="px-4 py-3"><app-status-badge [status]="investment.status" /></td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
 
-      <!-- Phones: one block per investment -->
-      <ul class="num divide-y divide-line rounded-lg border border-line bg-surface md:hidden">
-        @for (investment of data.items; track investment.id) {
-          <li>
-            <a [routerLink]="['/investments', investment.id]" class="block px-4 py-4">
+    <div class="min-w-0">
+      <label for="to" class="field-label">End date</label>
+      <input #end id="to" type="date" class="field" [value]="to() ?? ''" (change)="change('to', end.value)" />
+    </div>
+
+    <div class="col-span-2 min-w-0 lg:col-span-1">
+      <label for="owner-filter" class="field-label">Person</label>
+      <select #owner id="owner-filter" class="field" (change)="change('ownerId', owner.value)">
+        <option value="" [selected]="!ownerId()">Everyone</option>
+        @if (owners.hasValue()) {
+          @for (person of owners.value(); track person.id) {
+            <option [value]="person.id" [selected]="person.id === ownerId()">
+              {{ person.name }} ({{ person.email }})
+            </option>
+          }
+        }
+      </select>
+      @if (owners.error()) {
+        <p class="field-error">The list of people could not be loaded.</p>
+      }
+    </div>
+
+    <div class="min-w-0">
+      <label for="status-filter" class="field-label">Status</label>
+      <select #state id="status-filter" class="field" (change)="change('status', state.value)">
+        <option value="" [selected]="!status()">All</option>
+        @for (option of statuses; track option) {
+          <option [value]="option" [selected]="option === status()">{{ option }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="min-w-0">
+      <label for="sort" class="field-label">Sort by</label>
+      <select #order id="sort" class="field" (change)="change('sort', order.value)">
+        @for (option of sorts; track option.id) {
+          <option [value]="option.id" [selected]="option.id === sort()">{{ option.label }}</option>
+        }
+      </select>
+    </div>
+  </div>
+
+  <div class="mt-5" [attr.aria-busy]="list.isLoading()">
+    @if (error()) {
+      <div class="alert flex flex-wrap items-center justify-between gap-3" role="alert">
+        <span>{{ error() }}</span>
+        <button type="button" class="btn btn-secondary text-ink" (click)="list.reload()">Try again</button>
+      </div>
+    } @else if (list.hasValue()) {
+      @let data = list.value();
+      @if (data.items.length > 0) {
+        <!-- Wide screens: table -->
+        <div class="hidden overflow-x-auto lg:block">
+          <table class="num w-full text-left">
+            <thead class="bg-stripe text-sm text-muted">
+              <tr>
+                <th scope="col" class="px-4 py-3 font-medium">Owner</th>
+                <th scope="col" class="px-4 py-3 font-medium">Date</th>
+                <th scope="col" class="px-4 py-3 text-right font-medium">Amount</th>
+                <th scope="col" class="px-4 py-3 text-right font-medium">Current balance</th>
+                <th scope="col" class="px-4 py-3 font-medium">Status</th>
+                <th scope="col" class="px-4 py-3 text-center font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (investment of data.items; track investment.id) {
+                <tr class="even:bg-stripe">
+                  <td class="px-4 py-2.5">{{ investment.owner.name }}</td>
+                  <td class="px-4 py-2.5 whitespace-nowrap">{{ investment.creationDate | date: 'mediumDate' }}</td>
+                  <td class="px-4 py-2.5 text-right">{{ investment.initialAmount | currency }}</td>
+                  <td class="px-4 py-2.5 text-right font-medium">{{ investment.expectedBalance | currency }}</td>
+                  <td class="px-4 py-2.5"><app-status-badge [status]="investment.status" /></td>
+                  <td class="px-4 py-2.5">
+                    <div class="flex justify-center gap-2">
+                      <a
+                        [routerLink]="['/investments', investment.id]"
+                        [attr.aria-label]="'View investment of ' + investment.owner.name"
+                        class="btn btn-sm btn-primary"
+                        >View</a
+                      >
+                      @if (investment.status === 'Active') {
+                        <a
+                          [routerLink]="['/investments', investment.id, 'withdraw']"
+                          [attr.aria-label]="'Withdraw investment of ' + investment.owner.name"
+                          class="btn btn-sm btn-danger"
+                          >Withdraw</a
+                        >
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Phones: one block per investment -->
+        <ul class="num -mx-2 lg:hidden">
+          @for (investment of data.items; track investment.id) {
+            <li class="rounded-md px-2 py-4 even:bg-stripe">
               <span class="flex items-start justify-between gap-3">
                 <span class="min-w-0 font-medium break-words">{{ investment.owner.name }}</span>
                 <app-status-badge [status]="investment.status" />
@@ -93,47 +135,63 @@
               <span class="mt-1 block text-sm text-muted">
                 {{ investment.initialAmount | currency }} invested on {{ investment.creationDate | date: 'mediumDate' }}
               </span>
-            </a>
-          </li>
-        }
-      </ul>
+              <span class="mt-3 flex gap-2">
+                <a
+                  [routerLink]="['/investments', investment.id]"
+                  [attr.aria-label]="'View investment of ' + investment.owner.name"
+                  class="btn btn-primary"
+                  >View</a
+                >
+                @if (investment.status === 'Active') {
+                  <a
+                    [routerLink]="['/investments', investment.id, 'withdraw']"
+                    [attr.aria-label]="'Withdraw investment of ' + investment.owner.name"
+                    class="btn btn-danger"
+                    >Withdraw</a
+                  >
+                }
+              </span>
+            </li>
+          }
+        </ul>
+      } @else {
+        <div class="rounded-md bg-stripe px-4 py-12 text-center">
+          @if (data.totalItems > 0) {
+            <p>There is nothing on this page.</p>
+            <button type="button" class="btn btn-secondary mt-4" (click)="goTo(1)">Go to the first page</button>
+          } @else if (filtered()) {
+            <p>No investments match these filters.</p>
+            <button type="button" class="btn btn-secondary mt-4" (click)="clearFilters()">Clear filters</button>
+          } @else {
+            <p>No investments yet.</p>
+            <a routerLink="/investments/new" class="btn btn-secondary mt-4">Create an investment</a>
+          }
+        </div>
+      }
+
+      @if (data.totalPages > 1 && data.items.length > 0) {
+        <nav class="mt-4 flex items-center justify-between gap-3" aria-label="Pagination">
+          <button type="button" class="btn btn-secondary" [disabled]="data.page <= 1" (click)="goTo(data.page - 1)">
+            Previous
+          </button>
+          <span class="num text-sm text-muted">Page {{ data.page }} of {{ data.totalPages }}</span>
+          <button
+            type="button"
+            class="btn btn-secondary"
+            [disabled]="data.page >= data.totalPages"
+            (click)="goTo(data.page + 1)"
+          >
+            Next
+          </button>
+        </nav>
+      }
     } @else {
-      <div class="rounded-lg border border-line bg-surface px-4 py-12 text-center">
-        @if (data.totalItems > 0) {
-          <p>There is nothing on this page.</p>
-          <button type="button" class="btn btn-secondary mt-4" (click)="goTo(1)">Go to the first page</button>
-        } @else if (filtered()) {
-          <p>No investments match these filters.</p>
-          <button type="button" class="btn btn-secondary mt-4" (click)="clearFilters()">Clear filters</button>
-        } @else {
-          <p>No investments yet.</p>
-          <a routerLink="/investments/new" class="btn btn-secondary mt-4">Create an investment</a>
+      <p class="sr-only" role="status">Loading investments</p>
+      <div class="animate-pulse divide-y divide-line motion-reduce:animate-none">
+        @for (row of skeletonRows; track row) {
+          <div class="px-4 py-5"><div class="h-4 w-2/3 rounded bg-line"></div></div>
         }
       </div>
     }
-
-    @if (data.totalPages > 1 && data.items.length > 0) {
-      <nav class="mt-4 flex items-center justify-between gap-3" aria-label="Pagination">
-        <button type="button" class="btn btn-secondary" [disabled]="data.page <= 1" (click)="goTo(data.page - 1)">
-          Previous
-        </button>
-        <span class="num text-sm text-muted">Page {{ data.page }} of {{ data.totalPages }}</span>
-        <button
-          type="button"
-          class="btn btn-secondary"
-          [disabled]="data.page >= data.totalPages"
-          (click)="goTo(data.page + 1)"
-        >
-          Next
-        </button>
-      </nav>
-    }
-  } @else {
-    <p class="sr-only" role="status">Loading investments</p>
-    <div class="animate-pulse divide-y divide-line rounded-lg border border-line bg-surface motion-reduce:animate-none">
-      @for (row of skeletonRows; track row) {
-        <div class="px-4 py-5"><div class="h-4 w-2/3 rounded bg-line"></div></div>
-      }
-    </div>
-  }
-</div>
+  </div>
+</section>

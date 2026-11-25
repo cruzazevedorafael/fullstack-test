@@ -59,9 +59,18 @@ export interface ListQuery {
   page: number;
   pageSize: number;
   ownerId?: string;
+  from?: IsoDate;
+  to?: IsoDate;
   status?: Investment['status'];
   sortBy?: 'CreationDate' | 'Amount' | 'Owner';
   sortDirection?: 'Asc' | 'Desc';
+}
+
+export type SummaryQuery = Pick<ListQuery, 'ownerId' | 'from' | 'to'>;
+
+export interface Summary {
+  activeBalance: number;
+  activeInvestments: number;
 }
 
 export interface Page<T> {

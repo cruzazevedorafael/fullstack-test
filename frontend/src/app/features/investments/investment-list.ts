@@ -1,10 +1,10 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { httpResource } from '@angular/common/http';
 import { Component, computed, inject, input } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { Params, Router, RouterLink } from '@angular/router';
 import { errorMessage } from '../../core/error-message';
 import { InvestmentsApi } from '../../core/investments-api';
-import { Investment, ListQuery, Owner, Page } from '../../core/models';
+import { Investment, IsoDate, ListQuery, Owner, Page, Summary } from '../../core/models';
 import { StatusBadge } from '../../shared/status-badge';
 
 const PAGE_SIZE = 10;
@@ -31,11 +31,14 @@ const SORTS: Record<string, { label: string; query: Sort }> = {
 export class InvestmentList {
   readonly page = input(1, { transform: toPage });
   readonly ownerId = input<string>();
+  readonly from = input(undefined, { transform: toDate });
+  readonly to = input(undefined, { transform: toDate });
   readonly status = input(undefined, { transform: toStatus });
   readonly sort = input(DEFAULT_SORT, { transform: toSort });
 
   private readonly api = inject(InvestmentsApi);
   private readonly router = inject(Router);
+  private navigation: Promise<unknown> = Promise.resolve();
 
   protected readonly statuses = STATUSES;
   protected readonly sorts = Object.entries(SORTS).map(([id, { label }]) => ({ id, label }));
@@ -46,34 +49,49 @@ export class InvestmentList {
       page: this.page(),
       pageSize: PAGE_SIZE,
       ownerId: this.ownerId(),
+      from: this.from(),
+      to: this.to(),
       status: this.status(),
       ...SORTS[this.sort()].query,
     }),
   );
-  protected readonly filtered = computed(() => !!this.ownerId() || !!this.status());
+  protected readonly summary = httpResource<Summary>(() =>
+    this.api.summaryRequest({ ownerId: this.ownerId(), from: this.from(), to: this.to() }),
+  );
+  protected readonly filtered = computed(() => !!(this.ownerId() || this.from() || this.to() || this.status()));
   protected readonly error = computed(() => {
     const error = this.list.error();
     return error ? errorMessage(error) : '';
   });
 
-  protected change(param: 'ownerId' | 'status' | 'sort', value: string): void {
-    this.router.navigate([], { queryParams: { [param]: value || null, page: null }, queryParamsHandling: 'merge' });
+  protected change(param: 'ownerId' | 'from' | 'to' | 'status' | 'sort', value: string): void {
+    this.navigate({ [param]: value || null, page: null });
   }
 
   protected clearFilters(): void {
-    this.router.navigate([], {
-      queryParams: { ownerId: null, status: null, page: null },
-      queryParamsHandling: 'merge',
-    });
+    this.navigate({ ownerId: null, from: null, to: null, status: null, page: null });
   }
 
   protected goTo(page: number): void {
-    this.router.navigate([], { queryParams: { page }, queryParamsHandling: 'merge' });
+    this.navigate({ page });
+  }
+
+  /** One at a time: a new navigation would cancel the previous one and lose the filter it was applying. */
+  private navigate(queryParams: Params): void {
+    this.navigation = this.navigation.then(() =>
+      this.router.navigate([], { queryParams, queryParamsHandling: 'merge' }),
+    );
   }
 }
 
 function toStatus(value: unknown): Investment['status'] | undefined {
   return STATUSES.find((status) => status === value);
+}
+
+function toDate(value: unknown): IsoDate | undefined {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value))
+    ? value
+    : undefined;
 }
 
 function toSort(value: unknown): string {

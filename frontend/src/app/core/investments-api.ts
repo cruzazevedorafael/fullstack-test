@@ -2,7 +2,7 @@ import { HttpClient, HttpResourceRequest } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { AppConfig } from './app-config';
-import { InvestmentDetails, IsoDate, ListQuery, NewInvestment, NewOwner, Owner } from './models';
+import { InvestmentDetails, IsoDate, ListQuery, NewInvestment, NewOwner, Owner, SummaryQuery } from './models';
 
 /** Single place that knows the API routes. Reads are described as requests for httpResource. */
 @Injectable({ providedIn: 'root' })
@@ -11,8 +11,11 @@ export class InvestmentsApi {
   private readonly config = inject(AppConfig);
 
   listRequest(query: ListQuery): HttpResourceRequest {
-    const params = Object.fromEntries(Object.entries(query).filter(([, value]) => value));
-    return { url: this.url('/investments'), params };
+    return { url: this.url('/investments'), params: withoutBlanks(query) };
+  }
+
+  summaryRequest(query: SummaryQuery): HttpResourceRequest {
+    return { url: this.url('/investments/summary'), params: withoutBlanks(query) };
   }
 
   detailRequest(id: string): HttpResourceRequest {
@@ -54,4 +57,8 @@ export class InvestmentsApi {
   private url(path: string): string {
     return `${this.config.apiUrl}/api${path}`;
   }
+}
+
+function withoutBlanks(query: object): Record<string, string | number> {
+  return Object.fromEntries(Object.entries(query).filter(([, value]) => value));
 }
