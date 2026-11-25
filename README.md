@@ -49,7 +49,8 @@ With the API running:
 | `GET` | `/api/owners` | List people |
 | `POST` | `/api/owners` | Register a person |
 | `GET` | `/api/rules` | View the gain and tax rates in use |
-| `GET` | `/api/investments?ownerId=&status=&sortBy=&sortDirection=&page=1&pageSize=10` | List investments, with optional filters and order |
+| `GET` | `/api/investments/summary?ownerId=&from=&to=` | Total balance of the active investments |
+| `GET` | `/api/investments?ownerId=&from=&to=&status=&sortBy=&sortDirection=&page=1&pageSize=10` | List investments, with optional filters and order |
 | `GET` | `/api/investments/simulation?amount=&creationDate=&months=` | Simulate a withdrawal after some months, without creating anything |
 | `POST` | `/api/investments` | Create an investment |
 | `GET` | `/api/investments/{id}` | View initial amount, gains, expected balance, next gain and a withdrawal today |
@@ -79,7 +80,7 @@ The two projects are deployed independently. The UI reads the API address from `
 - **C# / .NET 10 and ASP.NET Core:** C# was requested. .NET 10 is the current LTS.
 - **EF Core + SQLite:** migrations and persistence with no database to install, so the API runs with a single command.
 - **Angular 22 + TypeScript:** "Angular.JS + TypeScript" was requested and read as current Angular.
-- **Tailwind CSS + Angular CDK:** own layout, with accessible dialogs from the CDK instead of a full component library.
+- **Tailwind CSS + Angular CDK:** layout based on the Figma reference, with accessible dialogs from the CDK instead of a full component library.
 - **No chart library:** there is a single line chart, drawn as SVG by a small component.
 - **Scalar + OpenAPI:** documentation generated from the code and navigable in the browser.
 - **xUnit and Vitest:** default test tools of current .NET and Angular.
@@ -100,6 +101,8 @@ The statement leaves some points open. These are the choices made. The business 
 | Double withdrawal | Refused with `409`, including simultaneous requests (optimistic concurrency). |
 | List | The API asks for a person's list and the UI for all investments, so the filter by person is optional. |
 | Sorting | By date, amount or owner. Not by balance, because it is calculated and not stored. |
+| Layout | Screens, structure and colors follow the Figma reference, seen only as a low-resolution preview. The owner column, the tax preview, the details screen, the dark theme and the phone layout are additions. |
+| Total balance | Adds only active investments. It follows the person and period filters, not the status one. |
 | Beyond the statement | Simulation, growth chart, status filter and sorting. Projections use the current rate and nothing simulated is stored. |
 | Rates | Configurable in `appsettings.json`, section `InvestmentRules`. |
 | Notifications | Sent on creation and withdrawal. They are only logged until `Smtp:Host` is configured. A failure never undoes the operation. |
@@ -123,6 +126,7 @@ The statement leaves some points open. These are the choices made. The business 
 ## Known limitations
 
 - If the rate changes, active investments are recalculated from the start with the new rate. The growth chart of a withdrawn investment is too, although its stored values don't change.
+- The total balance is added up in memory, because balances are calculated. A large base would need a cached total.
 - Sorting by owner ignores case, but places accented initials after Z (SQLite collation).
 - There is no authentication: anyone with access to the API sees every investment.
 - The list of people is not paginated.
