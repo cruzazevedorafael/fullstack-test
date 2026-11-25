@@ -65,6 +65,26 @@ public class InvestmentTests
         Assert.Throws<DomainException>(() => Investment.Create(Guid.Empty, 1000m, Created, Today));
     }
 
+    [Fact]
+    public void Create_rejects_dates_before_the_supported_range()
+    {
+        Assert.Throws<DomainException>(() => Investment.Create(OwnerId, 1000m, new DateOnly(1, 1, 1), Today));
+    }
+
+    [Fact]
+    public void Create_rejects_amounts_above_the_limit()
+    {
+        Assert.Throws<DomainException>(() => Investment.Create(OwnerId, Investment.MaxAmount + 0.01m, Created, Today));
+    }
+
+    [Fact]
+    public void Largest_and_oldest_allowed_investment_can_still_be_calculated()
+    {
+        var investment = Investment.Create(OwnerId, Investment.MaxAmount, Investment.MinCreationDate, Today);
+
+        Assert.True(investment.GetBalance(Today, Rules).Gains > 0);
+    }
+
     // ---------- balance ----------
 
     [Fact]

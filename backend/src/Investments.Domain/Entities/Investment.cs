@@ -28,6 +28,12 @@ public sealed record Withdrawal(
 /// </summary>
 public sealed class Investment
 {
+    /// <summary>Upper bound that keeps the compound gain inside the range of <see cref="decimal"/>.</summary>
+    public const decimal MaxAmount = 999_999_999_999.99m;
+
+    /// <summary>Oldest accepted creation date, for the same reason.</summary>
+    public static readonly DateOnly MinCreationDate = new(1900, 1, 1);
+
     public Guid Id { get; private set; }
     public Guid OwnerId { get; private set; }
     public Owner? Owner { get; private set; }
@@ -54,6 +60,11 @@ public sealed class Investment
             throw new DomainException("investment.amount_not_positive", "The amount must be greater than zero.");
         }
 
+        if (amount > MaxAmount)
+        {
+            throw new DomainException("investment.amount_too_large", "The amount is above the supported limit.");
+        }
+
         if (!Money.HasAtMostTwoDecimals(amount))
         {
             throw new DomainException("investment.amount_precision", "The amount must have at most two decimal places.");
@@ -62,6 +73,11 @@ public sealed class Investment
         if (creationDate > today)
         {
             throw new DomainException("investment.creation_in_future", "The creation date can be today or a past date, never a future date.");
+        }
+
+        if (creationDate < MinCreationDate)
+        {
+            throw new DomainException("investment.creation_too_old", $"The creation date can't be before {MinCreationDate:yyyy-MM-dd}.");
         }
 
         return new Investment
