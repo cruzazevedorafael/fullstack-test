@@ -1,0 +1,141 @@
+@if (points().length < 2) {
+  <p class="text-muted">No monthly gain was paid before the withdrawal, so there is no growth to show.</p>
+} @else {
+  @if (hasProjection()) {
+    <ul class="mb-4 flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted">
+      <li class="flex items-center gap-2">
+        <span class="w-5 border-t-2 border-accent" aria-hidden="true"></span>Balance so far
+      </li>
+      <li class="flex items-center gap-2">
+        <span class="w-5 border-t-2 border-dashed border-accent" aria-hidden="true"></span>Projection for the next 12
+        months
+      </li>
+    </ul>
+  }
+
+  <div class="num grid grid-cols-[auto_1fr] gap-x-3 text-xs text-muted">
+    <div class="flex h-56 flex-col-reverse justify-between text-right" aria-hidden="true">
+      @for (tick of ticks(); track tick) {
+        <span class="flex h-0 items-center justify-end">{{ tickLabel(tick) }}</span>
+      }
+    </div>
+
+    <div
+      class="relative h-56 touch-pan-y"
+      role="group"
+      tabindex="0"
+      aria-label="Balance by month. Use the arrow keys to read each month."
+      (pointermove)="pointAt($event)"
+      (pointerdown)="pointAt($event)"
+      (pointerleave)="clear()"
+      (blur)="clear()"
+      (keydown)="move($event)"
+    >
+      <div class="absolute inset-0 flex flex-col justify-between" aria-hidden="true">
+        @for (tick of ticks(); track tick) {
+          <span class="h-0 border-t border-line"></span>
+        }
+      </div>
+
+      <svg
+        class="absolute inset-0 size-full overflow-visible"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <path
+          [attr.d]="paidPath()"
+          class="fill-none stroke-accent"
+          stroke-width="2"
+          stroke-linejoin="round"
+          stroke-linecap="round"
+          vector-effect="non-scaling-stroke"
+        />
+        @if (hasProjection()) {
+          <path
+            [attr.d]="projectedPath()"
+            class="fill-none stroke-accent"
+            stroke-width="2"
+            stroke-dasharray="4 4"
+            vector-effect="non-scaling-stroke"
+          />
+        }
+      </svg>
+
+      @let current = paid().at(-1)!;
+      <span
+        class="absolute size-3 -translate-1/2 rounded-full border-2 border-surface bg-accent"
+        [style.left.%]="current.x"
+        [style.top.%]="current.y"
+        aria-hidden="true"
+      ></span>
+
+      <div class="pointer-events-none absolute inset-0" aria-live="polite">
+        @if (active(); as point) {
+          <span class="absolute inset-y-0 w-px bg-muted" [style.left.%]="point.x" aria-hidden="true"></span>
+          <span
+            class="absolute size-3 -translate-1/2 rounded-full border-2 border-surface bg-accent"
+            [style.left.%]="point.x"
+            [style.top.%]="point.y"
+            aria-hidden="true"
+          ></span>
+          <!-- Shifted by its own position, so it never leaves the plot. -->
+          <div
+            data-readout
+            class="absolute rounded-md border border-line bg-surface px-3 py-2 whitespace-nowrap shadow-md"
+            [class.top-0]="point.y > 50"
+            [class.bottom-0]="point.y <= 50"
+            [style.left.%]="point.x"
+            [style.transform]="'translateX(-' + point.x + '%)'"
+          >
+            <span class="block text-sm font-semibold text-ink">{{ point.balance | currency }}</span>
+            <span class="block">{{ point.date | date: 'mediumDate' }}{{ point.projected ? ', projected' : '' }}</span>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="col-start-2 mt-3 grid grid-cols-2 sm:grid-cols-3" aria-hidden="true">
+      <span>{{ points()[0].date | date: 'mediumDate' }}</span>
+      <span class="hidden text-center sm:block">{{ middleDate() | date: 'mediumDate' : 'UTC' }}</span>
+      <span class="text-right">{{ points().at(-1)!.date | date: 'mediumDate' }}</span>
+    </div>
+  </div>
+
+  <button
+    type="button"
+    class="btn btn-secondary mt-4"
+    [attr.aria-expanded]="showTable()"
+    (click)="showTable.set(!showTable())"
+  >
+    {{ showTable() ? 'Hide table' : 'Show as table' }}
+  </button>
+
+  @if (showTable()) {
+    <div
+      class="mt-4 max-h-72 overflow-auto rounded-md border border-line"
+      role="region"
+      aria-label="Balance by month"
+      tabindex="0"
+    >
+      <table class="num w-full text-left text-sm">
+        <thead class="sticky top-0 bg-surface text-muted">
+          <tr>
+            <th scope="col" class="px-4 py-2 font-medium">Date</th>
+            <th scope="col" class="px-4 py-2 text-right font-medium">Balance</th>
+            <th scope="col" class="px-4 py-2 font-medium">Type</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (point of points(); track point.date) {
+            <tr class="border-t border-line">
+              <td class="px-4 py-2">{{ point.date | date: 'mediumDate' }}</td>
+              <td class="px-4 py-2 text-right">{{ point.balance | currency }}</td>
+              <td class="px-4 py-2 text-muted">{{ point.projected ? 'Projected' : 'Paid' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+}

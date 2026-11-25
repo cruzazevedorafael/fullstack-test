@@ -1,0 +1,133 @@
+@import '@fontsource-variable/instrument-sans';
+@import 'tailwindcss';
+@import '@angular/cdk/overlay-prebuilt.css';
+
+:root {
+  color-scheme: light;
+  --bg: #f3f4f6;
+  --surface: #ffffff;
+  --stripe: #f9fafb;
+  --locked: #e5e7eb;
+  --ink: #111928;
+  --muted: #55606e;
+  --line: #d1d5db;
+  --accent: #1c64f2;
+  --on-accent: #ffffff;
+  --danger: #e02424;
+  --on-danger: #ffffff;
+  --gain: #046c4e;
+  --gain-soft: #def7ec;
+  --tax: #9b1c1c;
+  --danger-soft: #fde8e8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #0f1720;
+    --surface: #17222e;
+    --stripe: #1d2936;
+    --locked: #263543;
+    --ink: #e8eef3;
+    --muted: #9fb0bd;
+    --line: #2c3b49;
+    --accent: #86a6ff;
+    --on-accent: #0d1a3a;
+    --danger: #f98080;
+    --on-danger: #3b0d0d;
+    --gain: #5fd3a3;
+    --gain-soft: #143a2d;
+    --tax: #f3a17f;
+    --danger-soft: #42231a;
+  }
+}
+
+@theme inline {
+  --font-sans: 'Instrument Sans Variable', system-ui, sans-serif;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-stripe: var(--stripe);
+  --color-locked: var(--locked);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-danger: var(--danger);
+  --color-on-danger: var(--on-danger);
+  --color-gain: var(--gain);
+  --color-gain-soft: var(--gain-soft);
+  --color-tax: var(--tax);
+  --color-danger-soft: var(--danger-soft);
+}
+
+@layer base {
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex min-h-11 cursor-pointer items-center justify-center rounded-md px-4 font-medium transition-opacity disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply bg-accent text-on-accent hover:opacity-90;
+  }
+
+  .btn-danger {
+    @apply bg-danger text-on-danger hover:opacity-90;
+  }
+
+  .btn-sm {
+    @apply min-h-9 px-3 text-sm;
+  }
+
+  .card {
+    @apply rounded-lg bg-surface p-5 shadow-sm;
+  }
+
+  .btn-secondary {
+    @apply border border-line bg-surface hover:border-muted;
+  }
+
+  .field-label {
+    @apply mb-1 block text-sm font-medium;
+  }
+
+  .field {
+    @apply block min-h-11 w-full rounded-md border border-line bg-surface px-3;
+  }
+
+  .field-locked {
+    @apply bg-locked text-muted;
+  }
+
+  .field-error {
+    @apply mt-1 text-sm text-tax;
+  }
+
+  .alert {
+    @apply rounded-md bg-danger-soft px-4 py-3 text-tax;
+  }
+
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

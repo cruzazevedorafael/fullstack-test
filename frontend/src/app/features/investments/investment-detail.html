@@ -1,0 +1,91 @@
+<a routerLink="/investments" class="text-accent hover:underline">Back to investments</a>
+
+@if (error()) {
+  <div class="alert mt-6 flex flex-wrap items-center justify-between gap-3" role="alert">
+    <span>{{ notFound() ? 'This investment does not exist.' : error() }}</span>
+    @if (!notFound()) {
+      <button type="button" class="btn btn-secondary text-ink" (click)="investment.reload()">Try again</button>
+    }
+  </div>
+} @else if (investment.hasValue()) {
+  @let data = investment.value();
+  <div class="mt-4 flex flex-wrap items-center gap-3">
+    <h1 class="min-w-0 text-3xl font-semibold tracking-tight break-words">{{ data.owner.name }}</h1>
+    <app-status-badge [status]="data.status" />
+  </div>
+  <p class="mt-1 break-words text-muted">{{ data.owner.email }}</p>
+
+  <div class="mt-6 grid items-start gap-6 md:grid-cols-[3fr_2fr]">
+    <section class="num card" aria-labelledby="balance-title">
+      <h2 id="balance-title" class="text-muted">
+        {{ data.withdrawal ? 'Balance at withdrawal' : 'Expected balance today' }}
+      </h2>
+      <p class="mt-1 text-4xl font-semibold tracking-tight break-words">{{ data.expectedBalance | currency }}</p>
+
+      <dl class="mt-6 grid grid-cols-[1fr_auto] gap-y-3 border-t border-line pt-4">
+        <dt class="text-muted">Invested on {{ data.creationDate | date: 'mediumDate' }}</dt>
+        <dd class="pl-4 text-right">{{ data.initialAmount | currency }}</dd>
+        <dt class="text-muted">Gains</dt>
+        <dd class="pl-4 text-right text-gain">{{ data.gains | currency }}</dd>
+        @if (data.accrual; as accrual) {
+          <dt class="text-muted">Monthly gain, compounded</dt>
+          <dd class="pl-4 text-right">{{ accrual.monthlyGainRate | percent: '1.0-2' }}</dd>
+          <dt class="text-muted">Gains already paid</dt>
+          <dd class="pl-4 text-right">
+            {{ accrual.completedMonths }} {{ accrual.completedMonths === 1 ? 'month' : 'months' }}
+          </dd>
+          <dt class="text-muted">Next gain on {{ accrual.nextGainDate | date: 'mediumDate' }}</dt>
+          <dd class="pl-4 text-right text-gain">{{ accrual.nextGainAmount | currency }}</dd>
+        }
+      </dl>
+    </section>
+
+    @if (data.withdrawal; as withdrawal) {
+      <section class="num card" aria-labelledby="withdrawal-title">
+        <h2 id="withdrawal-title" class="font-semibold">Withdrawn on {{ withdrawal.date | date: 'mediumDate' }}</h2>
+        <dl class="mt-4 grid grid-cols-[1fr_auto] gap-y-3">
+          <dt class="text-muted">Gross amount</dt>
+          <dd class="pl-4 text-right">{{ withdrawal.grossAmount | currency }}</dd>
+          <dt class="text-muted">Tax on gains ({{ withdrawal.taxRate | percent: '1.0-2' }})</dt>
+          <dd class="pl-4 text-right text-tax">−{{ withdrawal.taxAmount | currency }}</dd>
+          <dt class="border-t border-line pt-3 font-semibold">Final amount</dt>
+          <dd class="pl-4 border-t border-line pt-3 text-right font-semibold">{{ withdrawal.netAmount | currency }}</dd>
+        </dl>
+      </section>
+    } @else if (data.accrual; as accrual) {
+      @let today = accrual.withdrawalToday;
+      <section class="num card" aria-labelledby="withdraw-section-title">
+        <h2 id="withdraw-section-title" class="font-semibold">If you withdraw today</h2>
+        <dl class="mt-4 grid grid-cols-[1fr_auto] gap-y-3">
+          <dt class="text-muted">Gross amount</dt>
+          <dd class="pl-4 text-right">{{ today.grossAmount | currency }}</dd>
+          <dt class="text-muted">Tax on gains ({{ today.taxRate | percent: '1.0-2' }})</dt>
+          <dd class="pl-4 text-right text-tax">−{{ today.taxAmount | currency }}</dd>
+          <dt class="border-t border-line pt-3 font-semibold">You receive</dt>
+          <dd class="border-t border-line pt-3 pl-4 text-right font-semibold">{{ today.netAmount | currency }}</dd>
+        </dl>
+        <p class="mt-4 text-sm text-muted">The whole balance is withdrawn at once. You can choose a past date.</p>
+        <a [routerLink]="['/investments', data.id, 'withdraw']" class="btn btn-danger mt-4 w-full">
+          Withdraw investment
+        </a>
+      </section>
+    }
+  </div>
+
+  <section class="mt-6 card" aria-labelledby="growth-title">
+    <h2 id="growth-title" class="mb-4 font-semibold">Growth</h2>
+    @if (growth.error()) {
+      <div class="alert flex flex-wrap items-center justify-between gap-3" role="alert">
+        <span>The chart could not be loaded.</span>
+        <button type="button" class="btn btn-secondary text-ink" (click)="growth.reload()">Try again</button>
+      </div>
+    } @else if (growth.hasValue()) {
+      <app-growth-chart [points]="growth.value()" />
+    } @else {
+      <div class="h-56 animate-pulse rounded-md bg-line motion-reduce:animate-none"></div>
+    }
+  </section>
+} @else {
+  <p class="sr-only" role="status">Loading investment</p>
+  <div class="mt-6 h-48 animate-pulse rounded-lg bg-line motion-reduce:animate-none"></div>
+}
