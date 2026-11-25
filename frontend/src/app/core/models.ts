@@ -27,6 +27,43 @@ export interface Investment {
   withdrawal: Withdrawal | null;
 }
 
+/** What an active investment has earned so far and what comes next. */
+export interface Accrual {
+  monthlyGainRate: number;
+  completedMonths: number;
+  nextGainDate: IsoDate;
+  nextGainAmount: number;
+  withdrawalToday: Withdrawal;
+}
+
+export interface InvestmentDetails extends Investment {
+  /** Null once withdrawn. */
+  accrual: Accrual | null;
+}
+
+export interface GrowthPoint {
+  date: IsoDate;
+  balance: number;
+  projected: boolean;
+}
+
+/** Rates as fractions: 0.0052 is 0.52%. */
+export interface Rules {
+  monthlyGainRate: number;
+  taxRateUnderOneYear: number;
+  taxRateOneToTwoYears: number;
+  taxRateOverTwoYears: number;
+}
+
+export interface ListQuery {
+  page: number;
+  pageSize: number;
+  ownerId?: string;
+  status?: Investment['status'];
+  sortBy?: 'CreationDate' | 'Amount' | 'Owner';
+  sortDirection?: 'Asc' | 'Desc';
+}
+
 export interface Page<T> {
   items: T[];
   page: number;
