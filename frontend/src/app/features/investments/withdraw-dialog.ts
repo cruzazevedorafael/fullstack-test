@@ -5,7 +5,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { businessToday } from '../../core/business-date';
 import { errorMessage } from '../../core/error-message';
 import { InvestmentsApi } from '../../core/investments-api';
-import { Investment, Withdrawal } from '../../core/models';
+import { Investment, InvestmentDetails, Withdrawal } from '../../core/models';
 
 /** Shows the simulated withdrawal for the chosen date and only then lets the user confirm it. */
 @Component({
@@ -15,7 +15,7 @@ import { Investment, Withdrawal } from '../../core/models';
 })
 export class WithdrawDialog {
   private readonly api = inject(InvestmentsApi);
-  private readonly ref = inject<DialogRef<Investment>>(DialogRef);
+  private readonly ref = inject<DialogRef<InvestmentDetails>>(DialogRef);
   protected readonly investment = inject<Investment>(DIALOG_DATA);
 
   protected readonly today = businessToday();
