@@ -1,0 +1,84 @@
+<a routerLink="/investments" class="text-accent hover:underline">Back to investments</a>
+<h1 class="mt-4 text-3xl font-semibold tracking-tight">New investment</h1>
+
+<form
+  class="mt-6 grid max-w-lg gap-5 rounded-lg border border-line bg-surface p-6"
+  novalidate
+  [formGroup]="form"
+  (ngSubmit)="submit()"
+>
+  <div>
+    <label for="owner" class="field-label">Owner</label>
+    <div class="flex flex-wrap gap-3 sm:flex-nowrap">
+      <select
+        id="owner"
+        class="field"
+        formControlName="ownerId"
+        aria-describedby="owner-error"
+        [attr.aria-invalid]="showError(form.controls.ownerId)"
+      >
+        <option value="">Select a person</option>
+        @if (owners.hasValue()) {
+          @for (owner of owners.value(); track owner.id) {
+            <option [value]="owner.id">{{ owner.name }} ({{ owner.email }})</option>
+          }
+        }
+      </select>
+      <button type="button" class="btn btn-secondary shrink-0" (click)="addOwner()">New person</button>
+    </div>
+    <div id="owner-error">
+      @if (owners.error()) {
+        <p class="field-error">The list of people could not be loaded.</p>
+      } @else if (showError(form.controls.ownerId)) {
+        <p class="field-error">Select the owner of this investment.</p>
+      }
+    </div>
+  </div>
+
+  <div>
+    <label for="amount" class="field-label">Amount (BRL)</label>
+    <input
+      id="amount"
+      type="number"
+      inputmode="decimal"
+      step="0.01"
+      min="0.01"
+      class="field num"
+      formControlName="amount"
+      aria-describedby="amount-error"
+      [attr.aria-invalid]="showError(form.controls.amount)"
+    />
+    <div id="amount-error">
+      @if (showError(form.controls.amount)) {
+        <p class="field-error">Enter an amount greater than zero, with up to two decimal places.</p>
+      }
+    </div>
+  </div>
+
+  <div>
+    <label for="creation-date" class="field-label">Date</label>
+    <input
+      id="creation-date"
+      type="date"
+      class="field"
+      formControlName="creationDate"
+      aria-describedby="creation-date-error"
+      [min]="minDate"
+      [max]="today"
+      [attr.aria-invalid]="showError(form.controls.creationDate)"
+    />
+    <div id="creation-date-error">
+      @if (showError(form.controls.creationDate)) {
+        <p class="field-error">Choose today or a past date.</p>
+      }
+    </div>
+  </div>
+
+  @if (error()) {
+    <p class="alert" role="alert">{{ error() }}</p>
+  }
+
+  <button type="submit" class="btn btn-primary justify-self-start" [disabled]="submitting()">
+    {{ submitting() ? 'Creating…' : 'Create investment' }}
+  </button>
+</form>

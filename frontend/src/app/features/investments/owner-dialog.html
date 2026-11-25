@@ -1,0 +1,54 @@
+<form
+  class="grid max-h-[calc(100dvh-2rem)] gap-5 overflow-y-auto rounded-lg bg-surface p-6 text-ink shadow-xl"
+  novalidate
+  [formGroup]="form"
+  (ngSubmit)="submit()"
+>
+  <h2 id="owner-title" class="text-xl font-semibold">New person</h2>
+
+  <div>
+    <label for="owner-name" class="field-label">Name</label>
+    <input
+      id="owner-name"
+      class="field"
+      autocomplete="off"
+      formControlName="name"
+      aria-describedby="owner-name-error"
+      [attr.aria-invalid]="showError(form.controls.name)"
+    />
+    <div id="owner-name-error">
+      @if (showError(form.controls.name)) {
+        <p class="field-error">Enter a name with up to 120 characters.</p>
+      }
+    </div>
+  </div>
+
+  <div>
+    <label for="owner-email" class="field-label">E-mail</label>
+    <input
+      id="owner-email"
+      type="email"
+      class="field"
+      autocomplete="off"
+      formControlName="email"
+      aria-describedby="owner-email-error"
+      [attr.aria-invalid]="showError(form.controls.email)"
+    />
+    <div id="owner-email-error">
+      @if (showError(form.controls.email)) {
+        <p class="field-error">Enter a valid e-mail.</p>
+      }
+    </div>
+  </div>
+
+  @if (error()) {
+    <p class="alert" role="alert">{{ error() }}</p>
+  }
+
+  <div class="flex flex-wrap justify-end gap-3">
+    <button type="button" class="btn btn-secondary" [disabled]="submitting()" (click)="cancel()">Cancel</button>
+    <button type="submit" class="btn btn-primary" [disabled]="submitting()">
+      {{ submitting() ? 'Adding…' : 'Add person' }}
+    </button>
+  </div>
+</form>
