@@ -1,13 +1,15 @@
 # Investments
 
+[![CI](https://github.com/cruzazevedorafael/fullstack-test/actions/workflows/ci.yml/badge.svg?branch=development)](https://github.com/cruzazevedorafael/fullstack-test/actions/workflows/ci.yml)
+
 Fullstack application that stores and manages investments: create, view, list and withdraw, with compound monthly gains and regressive taxes. The original statement is in [CHALLENGE.md](CHALLENGE.md).
 
 - **Backend:** C# / .NET 10, ASP.NET Core, EF Core, SQLite
 - **Frontend:** Angular 22, TypeScript, Tailwind CSS
 
-| List | Withdrawal |
+| List | Details |
 | --- | --- |
-| ![List of investments](screenshots/01-list.png) | ![Withdrawal preview](screenshots/04-withdraw.png) |
+| ![List of investments](screenshots/01-list.png) | ![Details with growth chart](screenshots/03-detail.png) |
 
 More images in [screenshots](screenshots).
 
@@ -33,6 +35,8 @@ cd backend && dotnet test
 cd frontend && npm test -- --watch=false
 ```
 
+Both suites and the production build of the UI also run on GitHub Actions at each push and pull request.
+
 ## API documentation
 
 With the API running:
@@ -44,9 +48,12 @@ With the API running:
 | --- | --- | --- |
 | `GET` | `/api/owners` | List people |
 | `POST` | `/api/owners` | Register a person |
-| `GET` | `/api/investments?ownerId=&page=1&pageSize=10` | List investments, optionally of a single person |
+| `GET` | `/api/rules` | View the gain and tax rates in use |
+| `GET` | `/api/investments?ownerId=&status=&sortBy=&sortDirection=&page=1&pageSize=10` | List investments, with optional filters and order |
+| `GET` | `/api/investments/simulation?amount=&creationDate=&months=` | Simulate a withdrawal after some months, without creating anything |
 | `POST` | `/api/investments` | Create an investment |
-| `GET` | `/api/investments/{id}` | View initial amount, gains and expected balance |
+| `GET` | `/api/investments/{id}` | View initial amount, gains, expected balance, next gain and a withdrawal today |
+| `GET` | `/api/investments/{id}/growth` | Balance after each monthly gain and a 12-month projection |
 | `GET` | `/api/investments/{id}/withdrawal-preview?date=` | Simulate a withdrawal |
 | `POST` | `/api/investments/{id}/withdrawal` | Withdraw |
 
@@ -67,6 +74,16 @@ frontend/
 
 The two projects are deployed independently. The UI reads the API address from `config.json` when it starts, so the same build works in any environment. The API reads the allowed UI origins from `Cors:AllowedOrigins`.
 
+## How the tools were chosen
+
+- **C# / .NET 10 and ASP.NET Core:** C# was requested. .NET 10 is the current LTS.
+- **EF Core + SQLite:** migrations and persistence with no database to install, so the API runs with a single command.
+- **Angular 22 + TypeScript:** "Angular.JS + TypeScript" was requested and read as current Angular.
+- **Tailwind CSS + Angular CDK:** own layout, with accessible dialogs from the CDK instead of a full component library.
+- **No chart library:** there is a single line chart, drawn as SVG by a small component.
+- **Scalar + OpenAPI:** documentation generated from the code and navigable in the browser.
+- **xUnit and Vitest:** default test tools of current .NET and Angular.
+
 ## Decisions
 
 The statement leaves some points open. These are the choices made. The business rules are covered by tests.
@@ -82,6 +99,8 @@ The statement leaves some points open. These are the choices made. The business 
 | Amount | Greater than zero, at most two decimal places, up to 999,999,999,999.99. Together with the minimum date (1900-01-01), this keeps the compound gain inside the range of `decimal`. |
 | Double withdrawal | Refused with `409`, including simultaneous requests (optimistic concurrency). |
 | List | The API asks for a person's list and the UI for all investments, so the filter by person is optional. |
+| Sorting | By date, amount or owner. Not by balance, because it is calculated and not stored. |
+| Beyond the statement | Simulation, growth chart, status filter and sorting. Projections use the current rate and nothing simulated is stored. |
 | Rates | Configurable in `appsettings.json`, section `InvestmentRules`. |
 | Notifications | Sent on creation and withdrawal. They are only logged until `Smtp:Host` is configured. A failure never undoes the operation. |
 | Angular | "Angular.JS + TypeScript" was read as current Angular, since AngularJS 1.x reached end of life. |
@@ -103,6 +122,8 @@ The statement leaves some points open. These are the choices made. The business 
 
 ## Known limitations
 
+- If the rate changes, active investments are recalculated from the start with the new rate. The growth chart of a withdrawn investment is too, although its stored values don't change.
+- Sorting by owner ignores case, but places accented initials after Z (SQLite collation).
 - There is no authentication: anyone with access to the API sees every investment.
 - The list of people is not paginated.
 - Migrations run when the API starts, which suits a single instance only.
