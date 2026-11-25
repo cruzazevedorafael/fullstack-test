@@ -15,14 +15,25 @@ More images in [screenshots](screenshots).
 
 ## Running
 
-Requirements: [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) and Node.js 24.15 or newer. No database to install: the SQLite file is created on the first run.
+Requirements: Git, [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) and Node.js 24.15 or newer. No database to install: the SQLite file is created on the first run.
+
+The code is in the `development` branch:
 
 ```bash
-# API: http://localhost:5018
+git clone -b development https://github.com/cruzazevedorafael/fullstack-test.git
+cd fullstack-test
+```
+
+API, at <http://localhost:5018>:
+
+```bash
 cd backend
 dotnet run --project src/Investments.Api --launch-profile http
+```
 
-# UI: http://localhost:4200 (in another terminal)
+UI, at <http://localhost:4200>, in another terminal opened in the `fullstack-test` folder:
+
+```bash
 cd frontend
 npm ci
 npm start
