@@ -1,111 +1,109 @@
-# Fullstack Test Project <img src="https://raw.githubusercontent.com/Coderockr/fullstack-test/refs/heads/main/coderockr.banner.svg" align="right" height="50px" />
+# Investments
 
-You should see this challenge as an opportunity to create an application following modern development best practices (given the stack of your choice), but also feel free to use your own architecture preferences (coding standards, code organization, third-party libraries, etc). It’s perfectly fine to use vanilla code or any framework or libraries.
+Fullstack application that stores and manages investments: create, view, list and withdraw, with compound monthly gains and regressive taxes. The original statement is in [CHALLENGE.md](CHALLENGE.md).
 
-## Scope
+- **Backend:** C# / .NET 10, ASP.NET Core, EF Core, SQLite
+- **Frontend:** Angular 22, TypeScript, Tailwind CSS
 
-In this challenge you should build a **fullstack application** (API + UI) for an application that stores and manages investments, it should have the following features:
+| List | Withdrawal |
+| --- | --- |
+| ![List of investments](screenshots/01-list.png) | ![Withdrawal preview](screenshots/04-withdraw.png) |
 
-### Backend (API)
+More images in [screenshots](screenshots).
 
-1. __Creation__ of an investment with an owner, a creation date and an amount.
-   1. The creation date of an investment can be today or a date in the past.
-   2. An investment should not be or become negative.
-2. __View__ of an investment with its initial amount and expected balance.
-   1. Expected balance should be the sum of the invested amount and the [gains][].
-   2. If an investment was already withdrawn then the balance must reflect the gains of that investment
-3. __Withdrawal__ of a investment.
-   1. The withdraw will always be the sum of the initial amount and its gains,
-      partial withdrawn is not supported.
-   2. The withdrawal date must be informmed by the user, and it can be a date in the past or today, but can't happen before the investment creation or the future.
-   3. [Taxes][taxes] need to be applied to the withdrawals before showing the final value.
-4. __List__ of a person's investments
-   1. This list should have pagination.
+## Running
 
-### Frontend (UI)
+Requirements: [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) and Node.js 24.15 or newer. No database to install: the SQLite file is created on the first run.
 
-1. __List__ of investments
-   - Display all investments with basic information (owner, date, amount, current balance, status)
-2. __View__ of a single investment
-   - Display detailed information including gains and final balance
-3. __Create__ investment form
-   - Allow users to create a new investment
-4. __Withdrawal__ action
-   - Allow users to perform a withdrawal and visualize the final taxed amount
+```bash
+# API: http://localhost:5018
+cd backend
+dotnet run --project src/Investments.Api --launch-profile http
 
-### Gain Calculation
+# UI: http://localhost:4200 (in another terminal)
+cd frontend
+npm ci
+npm start
+```
 
-The investment will pay 0.52% every month in the same day of the investment creation.
+Tests:
 
-Given that the gain is paid every month, it should be treated as [compound gain][], which means that every new period (month) the amount gained will become part of the investment balance for the next payment.
+```bash
+cd backend && dotnet test
+cd frontend && npm test -- --watch=false
+```
 
-### Taxation
+## API documentation
 
-When money is withdrawn, tax is triggered. Taxes apply only to the gain portion of the money withdrawn. For example, if the initial investment was 1000.00, the current balance is 1200.00, then the taxes will be applied to the 200.00.
+With the API running:
 
-The tax percentage changes according to the age of the investment:
-* If it is less than one year old, the percentage will be 22.5% (tax = 45.00).
-* If it is between one and two years old, the percentage will be 18.5% (tax = 37.00).
-* If older than two years, the percentage will be 15% (tax = 30.00).
+- Navigable documentation: <http://localhost:5018/docs>
+- OpenAPI document: <http://localhost:5018/openapi/v1.json>
 
-## Design Reference
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/owners` | List people |
+| `POST` | `/api/owners` | Register a person |
+| `GET` | `/api/investments?ownerId=&page=1&pageSize=10` | List investments, optionally of a single person |
+| `POST` | `/api/investments` | Create an investment |
+| `GET` | `/api/investments/{id}` | View initial amount, gains and expected balance |
+| `GET` | `/api/investments/{id}/withdrawal-preview?date=` | Simulate a withdrawal |
+| `POST` | `/api/investments/{id}/withdrawal` | Withdraw |
 
-Use the following Figma as a visual and structural reference for the frontend interface:
+Errors follow RFC 9457 (`application/problem+json`): `400` for invalid data or broken rules, `404` for unknown resources and `409` for conflicts, such as a second withdrawal. Business errors also carry a stable `code`.
 
-- Figma: https://www.figma.com/design/jkilpjx9Q6hZnnCBHZcAWG/Coderockr-Fullstack---Test?node-id=0-1&p=f&t=thQWSMxSHxCJTtAs-0
-- Prototype: https://www.figma.com/proto/jkilpjx9Q6hZnnCBHZcAWG/Coderockr-Fullstack---Test?node-id=1-2&p=f&t=thQWSMxSHxCJTtAs-0&scaling=scale-down-width&content-scaling=fixed&page-id=0%3A1
+## Structure
 
-__NOTE:__ The layout will be evaluated, but not strictly against the provided design. You can use it as a guideline for structure and organization. Feel free to be creative and enhance the interface with your own ideas, such as visual effects, animations, transitions between screens, and responsive behavior. You may also use UI libraries or create your own components.
+```
+backend/
+  src/Investments.Domain   business rules, without database or HTTP
+  src/Investments.Api      endpoints, persistence, notifications
+  tests/                   unit tests (Domain) and end-to-end API tests (Api)
+frontend/
+  src/app/core             API access, configuration, error messages
+  src/app/features         screens
+  src/app/shared           reusable components
+```
 
-## Requirements
-1. Create project using any technology of your preference. It’s perfectly OK to use vanilla code or any framework or libraries;
-2. Although you can use as many dependencies as you want, you should manage them wisely;
-3. It is not necessary to send the notification emails, however, the code required for that would be welcome;
-4. The API must be documented in some way;
-5. Use [Conventional Commits](https://www.conventionalcommits.org/) for commit messages throughout the development process;
+The two projects are deployed independently. The UI reads the API address from `config.json` when it starts, so the same build works in any environment. The API reads the allowed UI origins from `Cors:AllowedOrigins`.
 
-## Deliverables
-The project source code and dependencies should be made available in GitHub. Here are the steps you should follow:
-1. Fork this repository to your GitHub account (create an account if you don't have one, you will need it working with us).
-2. Create a "development" branch and commit the code to it. Do not push the code to the main branch.
-3. Include a README file that describes:
-   - Special build instructions, if any
-   - List of third-party libraries used and short description of why/how they were used
-   - A link to the API documentation.
-4. Once the work is complete, create a pull request from "development" into "main" and send us the link.
-5. Avoid using huge commits hiding your progress. Feel free to work on a branch and use `git rebase` to adjust your commits before submitting the final version.
-6. Create a "screenshots" sub-folder and include at least two screenshots of the app.
+## Decisions
 
-## Coding Standards
-When working on the project be as clean and consistent as possible.
+The statement leaves some points open. These are the choices made. The business rules are covered by tests.
 
-## Project Deadline
-Ideally you'd finish the test project in 5 days. It shouldn't take you longer than a entire week.
+| Point | Decision |
+| --- | --- |
+| Money | `decimal` everywhere. The balance is calculated at full precision and rounded to cents only at the end, half away from zero. |
+| Monthly gain | Paid on each monthly anniversary. Partial months pay nothing. |
+| Created on the 29th, 30th or 31st | In shorter months the gain is paid on the last day. |
+| Tax brackets | Based on the age on the **withdrawal date**. Exactly one year and exactly two years both pay 18.5%. |
+| Stored or calculated | The balance of an active investment is always calculated. Withdrawal values are stored, so past withdrawals don't change if a rate changes. |
+| Today | Calendar day in São Paulo (`BusinessTimeZone`), regardless of the server time zone. |
+| Amount | Greater than zero, at most two decimal places, up to 999,999,999,999.99. Together with the minimum date (1900-01-01), this keeps the compound gain inside the range of `decimal`. |
+| Double withdrawal | Refused with `409`, including simultaneous requests (optimistic concurrency). |
+| List | The API asks for a person's list and the UI for all investments, so the filter by person is optional. |
+| Rates | Configurable in `appsettings.json`, section `InvestmentRules`. |
+| Notifications | Sent on creation and withdrawal. They are only logged until `Smtp:Host` is configured. A failure never undoes the operation. |
+| Angular | "Angular.JS + TypeScript" was read as current Angular, since AngularJS 1.x reached end of life. |
 
-## Quality Assurance
-Use the following checklist to ensure high quality of the project.
+## Third-party libraries
 
-### General
-- First of all, the application should run without errors.
-- Are all requirements set above met?
-- Is coding style consistent?
-- The API is well documented?
-- The API has unit tests?
-- Is the backend and frontend deploy-independent?
+| Library | Why |
+| --- | --- |
+| Entity Framework Core + SQLite | Persistence and migrations with nothing to install |
+| Microsoft.AspNetCore.OpenApi | Generates the OpenAPI document from the code |
+| Scalar.AspNetCore | Navigable API documentation |
+| xUnit, Microsoft.AspNetCore.Mvc.Testing | Unit tests and tests against the real API in memory |
+| coverlet.collector | Test coverage collector included in the xUnit template |
+| Angular CDK | Accessible dialogs (focus trap, Escape, ARIA) without imposing a look |
+| Tailwind CSS | Styling |
+| Instrument Sans (Fontsource) | Self-hosted font, with no external requests |
+| Vitest, jsdom | Frontend tests |
+| Prettier | Frontend formatting |
 
-## Submission
-1. A link to the Github repository.
-2. Briefly describe how you decided on the tools that you used.
+## Known limitations
 
-## Have Fun Coding 🤘
-- This challenge description is intentionally vague in some aspects, but if you need assistance feel free to ask for help.
-- If any of the seems out of your current level, you may skip it, but remember to tell us about it in the pull request.
-
-## Credits
-
-This coding challenge was inspired on [kinvoapp/kinvo-back-end-test](https://github.com/kinvoapp/kinvo-back-end-test/blob/2f17d713de739e309d17a1a74a82c3fd0e66d128/README.md)
-
-[gains]: #gain-calculation
-[taxes]: #taxation
-[interest]: #interest-calculation
-[compound gain]: https://www.investopedia.com/terms/g/gain.asp
+- There is no authentication: anyone with access to the API sees every investment.
+- The list of people is not paginated.
+- Migrations run when the API starts, which suits a single instance only.
+- E-mails are sent during the request, with a five-second limit. A real system would use a queue.
