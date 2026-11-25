@@ -40,10 +40,31 @@ public sealed record SimulationRequest
     public int? Months { get; init; }
 }
 
+public enum InvestmentSort
+{
+    CreationDate,
+    Amount,
+    Owner,
+}
+
+public enum SortDirection
+{
+    Asc,
+    Desc,
+}
+
 public sealed record ListInvestmentsRequest : PageRequest
 {
     /// <summary>When informed, returns only the investments of this person.</summary>
     public Guid? OwnerId { get; init; }
+
+    /// <summary>When informed, returns only the investments with this status.</summary>
+    public InvestmentStatus? Status { get; init; }
+
+    /// <summary>Field used to sort. The balance isn't an option because it is calculated, not stored.</summary>
+    public InvestmentSort SortBy { get; init; } = InvestmentSort.CreationDate;
+
+    public SortDirection SortDirection { get; init; } = SortDirection.Desc;
 }
 
 public sealed record WithdrawalResponse(

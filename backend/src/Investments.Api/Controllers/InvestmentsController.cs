@@ -13,7 +13,7 @@ public sealed class InvestmentsController(InvestmentService investments) : Contr
 {
     [HttpGet]
     [EndpointSummary("List investments")]
-    [EndpointDescription("Paginated, newest first. Use ownerId to list the investments of a single person.")]
+    [EndpointDescription("Paginated, newest first unless sorted otherwise. Use ownerId to list the investments of a single person.")]
     [ProducesResponseType<PagedResponse<InvestmentResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     public Task<PagedResponse<InvestmentResponse>> List([FromQuery] ListInvestmentsRequest request, CancellationToken cancellationToken) =>

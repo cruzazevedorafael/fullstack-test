@@ -289,6 +289,56 @@ public sealed class InvestmentsApiTests(ApiFactory factory) : IClassFixture<ApiF
         Assert.Empty(Amounts(beyond));
     }
 
+    [Theory]
+    [InlineData("Active", new[] { 300, 100 })]
+    [InlineData("Withdrawn", new[] { 200 })]
+    public async Task List_is_filtered_by_status(string status, int[] expected)
+    {
+        var ownerId = await CreateOwnerAsync();
+        await PostInvestmentAsync(ownerId, 100m, "2025-03-01");
+        var second = await PostInvestmentAsync(ownerId, 200m, "2025-03-02");
+        await PostInvestmentAsync(ownerId, 300m, "2025-03-03");
+        await WithdrawAsync((await second.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid(), "2026-01-10");
+
+        var list = await GetJsonAsync($"/api/investments?ownerId={ownerId}&status={status}");
+
+        Assert.Equal(expected.Select(v => (decimal)v), Amounts(list));
+        Assert.Equal(expected.Length, list.GetProperty("totalItems").GetInt32());
+    }
+
+    [Theory]
+    [InlineData("", new[] { 1000, 9, 20 })] // newest first
+    [InlineData("&sortBy=CreationDate&sortDirection=Asc", new[] { 20, 9, 1000 })]
+    [InlineData("&sortBy=Amount&sortDirection=Asc", new[] { 9, 20, 1000 })] // as numbers, not as text
+    [InlineData("&sortBy=Amount&sortDirection=Desc", new[] { 1000, 20, 9 })]
+    public async Task List_is_sorted(string sort, int[] expected)
+    {
+        var ownerId = await CreateOwnerAsync();
+        await PostInvestmentAsync(ownerId, 20m, "2025-03-01");
+        await PostInvestmentAsync(ownerId, 9m, "2025-03-02");
+        await PostInvestmentAsync(ownerId, 1000m, "2025-03-03");
+
+        var list = await GetJsonAsync($"/api/investments?ownerId={ownerId}{sort}");
+
+        Assert.Equal(expected.Select(v => (decimal)v), Amounts(list));
+    }
+
+    [Fact]
+    public async Task List_is_sorted_by_owner_name_ignoring_case()
+    {
+        using var isolated = new ApiFactory();
+        var client = isolated.CreateClient();
+        foreach (var name in new[] { "Carla", "bruno", "Ana" })
+        {
+            var owner = await (await client.PostAsJsonAsync("/api/owners", new { name, email = $"{name}@example.com" })).Content.ReadFromJsonAsync<JsonElement>();
+            await client.PostAsJsonAsync("/api/investments", new { ownerId = owner.GetProperty("id").GetGuid(), amount = 1m, creationDate = "2025-03-01" });
+        }
+
+        var list = await client.GetFromJsonAsync<JsonElement>("/api/investments?sortBy=Owner&sortDirection=Asc");
+
+        Assert.Equal(["Ana", "bruno", "Carla"], list.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("owner").GetProperty("name").GetString()));
+    }
+
     [Fact]
     public async Task List_without_filter_includes_everyone()
     {
@@ -307,7 +357,11 @@ public sealed class InvestmentsApiTests(ApiFactory factory) : IClassFixture<ApiF
     [InlineData("pageSize=0")]
     [InlineData("pageSize=101")]
     [InlineData("page=abc")]
-    public async Task List_rejects_invalid_pagination(string query)
+    [InlineData("status=Unknown")]
+    [InlineData("status=7")]
+    [InlineData("sortBy=Balance")]
+    [InlineData("sortDirection=Up")]
+    public async Task List_rejects_invalid_parameters(string query)
     {
         Assert.Equal(HttpStatusCode.BadRequest, (await _client.GetAsync($"/api/investments?{query}")).StatusCode);
     }

@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Investments.Api.Contracts;
 using Investments.Api.Data;
 using Investments.Api.Errors;
@@ -27,10 +28,14 @@ public sealed class InvestmentService(
             query = query.Where(i => i.OwnerId == ownerId);
         }
 
+        if (request.Status is { } status)
+        {
+            query = query.Where(i => i.Status == status);
+        }
+
         var total = await query.CountAsync(cancellationToken);
-        var investments = await query
+        var investments = await Sort(query, request)
             .Include(i => i.Owner)
-            .OrderByDescending(i => i.CreationDate).ThenBy(i => i.Id)
             .Skip((request.Page - 1) * request.PageSize)
             .Take(request.PageSize)
             .ToListAsync(cancellationToken);
@@ -95,6 +100,25 @@ public sealed class InvestmentService(
 
         return ToResponse(investment);
     }
+
+    /// <summary>Ties are always resolved the same way, so no item is repeated or skipped between pages.</summary>
+    private static IQueryable<Investment> Sort(IQueryable<Investment> query, ListInvestmentsRequest request)
+    {
+        var descending = request.SortDirection == SortDirection.Desc;
+        var sorted = request.SortBy switch
+        {
+            // SQLite stores decimals as text, so they are compared as numbers explicitly.
+            InvestmentSort.Amount => OrderBy(query, i => (double)i.InitialAmount, descending),
+            InvestmentSort.Owner => OrderBy(query, i => EF.Functions.Collate(i.Owner!.Name, "NOCASE"), descending),
+            _ => OrderBy(query, i => i.CreationDate, descending),
+        };
+
+        return sorted.ThenByDescending(i => i.CreationDate).ThenBy(i => i.Id);
+    }
+
+    private static IOrderedQueryable<Investment> OrderBy<TKey>(
+        IQueryable<Investment> query, Expression<Func<Investment, TKey>> key, bool descending) =>
+        descending ? query.OrderByDescending(key) : query.OrderBy(key);
 
     private async Task<Investment> FindAsync(Guid id, CancellationToken cancellationToken) =>
         await db.Investments.Include(i => i.Owner).FirstOrDefaultAsync(i => i.Id == id, cancellationToken)
