@@ -1,0 +1,85 @@
+<a [routerLink]="['/investments', id()]" class="text-accent hover:underline">Back to the investment</a>
+
+@if (loadError()) {
+  <div class="alert mt-6 flex flex-wrap items-center justify-between gap-3" role="alert">
+    <span>{{ notFound() ? 'This investment does not exist.' : loadError() }}</span>
+    @if (!notFound()) {
+      <button type="button" class="btn btn-secondary text-ink" (click)="investment.reload()">Try again</button>
+    }
+  </div>
+} @else if (investment.hasValue()) {
+  @let data = investment.value();
+  <section class="card mt-4" aria-labelledby="withdraw-title">
+    <h1 id="withdraw-title" class="text-xl font-semibold">Withdraw investment</h1>
+
+    @if (data.status === 'Withdrawn') {
+      <p class="mt-4">This investment has already been withdrawn.</p>
+      <a [routerLink]="['/investments', data.id]" class="btn btn-secondary mt-4">View investment</a>
+    } @else {
+      <div class="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-[22rem_1fr_10rem_12rem]">
+        <div class="min-w-0">
+          <label for="withdraw-id" class="field-label">ID</label>
+          <input id="withdraw-id" class="field field-locked" readonly [value]="data.id" />
+        </div>
+        <div class="min-w-0">
+          <label for="withdraw-owner" class="field-label">Owner</label>
+          <input id="withdraw-owner" class="field field-locked" readonly [value]="data.owner.name" />
+        </div>
+        <div class="min-w-0">
+          <label for="withdraw-amount" class="field-label">Amount</label>
+          <input id="withdraw-amount" class="field field-locked num" readonly [value]="data.initialAmount | currency" />
+        </div>
+        <div class="min-w-0">
+          <label for="withdraw-date" class="field-label">Withdrawal date</label>
+          <input
+            #dateInput
+            id="withdraw-date"
+            type="date"
+            class="field"
+            aria-describedby="withdraw-date-error"
+            [value]="today"
+            [min]="data.creationDate"
+            [max]="today"
+            [disabled]="submitting()"
+            (input)="changeDate(dateInput.value)"
+          />
+          <div id="withdraw-date-error">
+            @if (!date()) {
+              <p class="field-error">Choose a withdrawal date.</p>
+            }
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-6 ml-auto min-h-40 max-w-md" aria-live="polite" [attr.aria-busy]="preview.isLoading()">
+        @if (error()) {
+          <p class="alert" role="alert">{{ error() }}</p>
+        } @else if (preview.hasValue()) {
+          @let values = preview.value();
+          <dl class="num grid grid-cols-[1fr_auto] gap-y-3">
+            <dt class="text-muted">Invested</dt>
+            <dd class="pl-4 text-right">{{ data.initialAmount | currency }}</dd>
+            <dt class="text-muted">Gains</dt>
+            <dd class="pl-4 text-right text-gain">{{ values.gains | currency }}</dd>
+            <dt class="text-muted">Tax on gains ({{ values.taxRate | percent: '1.0-2' }})</dt>
+            <dd class="pl-4 text-right text-tax">−{{ values.taxAmount | currency }}</dd>
+            <dt class="border-t border-line pt-3 font-semibold">You receive</dt>
+            <dd class="border-t border-line pt-3 pl-4 text-right font-semibold">{{ values.netAmount | currency }}</dd>
+          </dl>
+        } @else if (preview.isLoading()) {
+          <p class="text-muted">Calculating…</p>
+        }
+      </div>
+
+      <div class="mt-4 flex flex-wrap items-center justify-end gap-3">
+        <p class="text-sm text-muted">A withdrawal can't be undone.</p>
+        <button type="button" class="btn btn-danger" [disabled]="!canConfirm()" (click)="confirm()">
+          {{ submitting() ? 'Withdrawing…' : 'Confirm withdrawal' }}
+        </button>
+      </div>
+    }
+  </section>
+} @else {
+  <p class="sr-only" role="status">Loading investment</p>
+  <div class="mt-4 h-64 animate-pulse rounded-lg bg-line motion-reduce:animate-none"></div>
+}

@@ -16,7 +16,7 @@
   <p class="mt-1 break-words text-muted">{{ data.owner.email }}</p>
 
   <div class="mt-6 grid items-start gap-6 md:grid-cols-[3fr_2fr]">
-    <section class="num rounded-lg border border-line bg-surface p-6" aria-labelledby="balance-title">
+    <section class="num card" aria-labelledby="balance-title">
       <h2 id="balance-title" class="text-muted">
         {{ data.withdrawal ? 'Balance at withdrawal' : 'Expected balance today' }}
       </h2>
@@ -41,7 +41,7 @@
     </section>
 
     @if (data.withdrawal; as withdrawal) {
-      <section class="num rounded-lg border border-line bg-surface p-6" aria-labelledby="withdrawal-title">
+      <section class="num card" aria-labelledby="withdrawal-title">
         <h2 id="withdrawal-title" class="font-semibold">Withdrawn on {{ withdrawal.date | date: 'mediumDate' }}</h2>
         <dl class="mt-4 grid grid-cols-[1fr_auto] gap-y-3">
           <dt class="text-muted">Gross amount</dt>
@@ -54,7 +54,7 @@
       </section>
     } @else if (data.accrual; as accrual) {
       @let today = accrual.withdrawalToday;
-      <section class="num rounded-lg border border-line bg-surface p-6" aria-labelledby="withdraw-section-title">
+      <section class="num card" aria-labelledby="withdraw-section-title">
         <h2 id="withdraw-section-title" class="font-semibold">If you withdraw today</h2>
         <dl class="mt-4 grid grid-cols-[1fr_auto] gap-y-3">
           <dt class="text-muted">Gross amount</dt>
@@ -65,14 +65,14 @@
           <dd class="border-t border-line pt-3 pl-4 text-right font-semibold">{{ today.netAmount | currency }}</dd>
         </dl>
         <p class="mt-4 text-sm text-muted">The whole balance is withdrawn at once. You can choose a past date.</p>
-        <button type="button" class="btn btn-primary mt-4 w-full" (click)="openWithdrawal(data)">
+        <a [routerLink]="['/investments', data.id, 'withdraw']" class="btn btn-danger mt-4 w-full">
           Withdraw investment
-        </button>
+        </a>
       </section>
     }
   </div>
 
-  <section class="mt-6 rounded-lg border border-line bg-surface p-6" aria-labelledby="growth-title">
+  <section class="mt-6 card" aria-labelledby="growth-title">
     <h2 id="growth-title" class="mb-4 font-semibold">Growth</h2>
     @if (growth.error()) {
       <div class="alert flex flex-wrap items-center justify-between gap-3" role="alert">

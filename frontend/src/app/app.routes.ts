@@ -9,13 +9,18 @@ export const routes: Routes = [
   },
   {
     path: 'investments/new',
-    title: 'New investment',
+    title: 'Create investment',
     loadComponent: () => import('./features/investments/investment-form').then((m) => m.InvestmentForm),
   },
   {
     path: 'investments/:id',
     title: 'Investment details',
     loadComponent: () => import('./features/investments/investment-detail').then((m) => m.InvestmentDetail),
+  },
+  {
+    path: 'investments/:id/withdraw',
+    title: 'Withdraw investment',
+    loadComponent: () => import('./features/investments/investment-withdraw').then((m) => m.InvestmentWithdraw),
   },
   { path: '**', redirectTo: 'investments' },
 ];
