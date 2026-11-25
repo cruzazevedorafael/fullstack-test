@@ -3,19 +3,42 @@
   <a routerLink="/investments/new" class="btn btn-primary">New investment</a>
 </div>
 
-<div class="mt-6 max-w-xs">
-  <label for="owner-filter" class="field-label">Person</label>
-  <select #filter id="owner-filter" class="field" (change)="filterBy(filter.value)">
-    <option value="" [selected]="!ownerId()">Everyone</option>
-    @if (owners.hasValue()) {
-      @for (owner of owners.value(); track owner.id) {
-        <option [value]="owner.id" [selected]="owner.id === ownerId()">{{ owner.name }} ({{ owner.email }})</option>
+<div class="mt-6 grid gap-4 sm:grid-cols-3">
+  <div class="min-w-0">
+    <label for="owner-filter" class="field-label">Person</label>
+    <select #owner id="owner-filter" class="field" (change)="change('ownerId', owner.value)">
+      <option value="" [selected]="!ownerId()">Everyone</option>
+      @if (owners.hasValue()) {
+        @for (person of owners.value(); track person.id) {
+          <option [value]="person.id" [selected]="person.id === ownerId()">
+            {{ person.name }} ({{ person.email }})
+          </option>
+        }
       }
+    </select>
+    @if (owners.error()) {
+      <p class="field-error">The list of people could not be loaded.</p>
     }
-  </select>
-  @if (owners.error()) {
-    <p class="field-error">The list of people could not be loaded.</p>
-  }
+  </div>
+
+  <div class="min-w-0">
+    <label for="status-filter" class="field-label">Status</label>
+    <select #state id="status-filter" class="field" (change)="change('status', state.value)">
+      <option value="" [selected]="!status()">All</option>
+      @for (option of statuses; track option) {
+        <option [value]="option" [selected]="option === status()">{{ option }}</option>
+      }
+    </select>
+  </div>
+
+  <div class="min-w-0">
+    <label for="sort" class="field-label">Sort by</label>
+    <select #order id="sort" class="field" (change)="change('sort', order.value)">
+      @for (option of sorts; track option.id) {
+        <option [value]="option.id" [selected]="option.id === sort()">{{ option.label }}</option>
+      }
+    </select>
+  </div>
 </div>
 
 <div class="mt-6" [attr.aria-busy]="list.isLoading()">
@@ -79,8 +102,11 @@
         @if (data.totalItems > 0) {
           <p>There is nothing on this page.</p>
           <button type="button" class="btn btn-secondary mt-4" (click)="goTo(1)">Go to the first page</button>
+        } @else if (filtered()) {
+          <p>No investments match these filters.</p>
+          <button type="button" class="btn btn-secondary mt-4" (click)="clearFilters()">Clear filters</button>
         } @else {
-          <p>{{ ownerId() ? 'This person has no investments yet.' : 'No investments yet.' }}</p>
+          <p>No investments yet.</p>
           <a routerLink="/investments/new" class="btn btn-secondary mt-4">Create an investment</a>
         }
       </div>
