@@ -4,17 +4,21 @@
 
 :root {
   color-scheme: light;
-  --bg: #f1f4f7;
+  --bg: #f3f4f6;
   --surface: #ffffff;
-  --ink: #12202f;
-  --muted: #55646f;
-  --line: #d5dde4;
-  --accent: #1f4fd8;
+  --stripe: #f9fafb;
+  --locked: #e5e7eb;
+  --ink: #111928;
+  --muted: #55606e;
+  --line: #d1d5db;
+  --accent: #1c64f2;
   --on-accent: #ffffff;
-  --gain: #0b6f4a;
-  --gain-soft: #dcf1e7;
-  --tax: #a83c17;
-  --danger-soft: #fbe6de;
+  --danger: #e02424;
+  --on-danger: #ffffff;
+  --gain: #046c4e;
+  --gain-soft: #def7ec;
+  --tax: #9b1c1c;
+  --danger-soft: #fde8e8;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,11 +26,15 @@
     color-scheme: dark;
     --bg: #0f1720;
     --surface: #17222e;
+    --stripe: #1d2936;
+    --locked: #263543;
     --ink: #e8eef3;
     --muted: #9fb0bd;
     --line: #2c3b49;
     --accent: #86a6ff;
     --on-accent: #0d1a3a;
+    --danger: #f98080;
+    --on-danger: #3b0d0d;
     --gain: #5fd3a3;
     --gain-soft: #143a2d;
     --tax: #f3a17f;
@@ -38,11 +46,15 @@
   --font-sans: 'Instrument Sans Variable', system-ui, sans-serif;
   --color-bg: var(--bg);
   --color-surface: var(--surface);
+  --color-stripe: var(--stripe);
+  --color-locked: var(--locked);
   --color-ink: var(--ink);
   --color-muted: var(--muted);
   --color-line: var(--line);
   --color-accent: var(--accent);
   --color-on-accent: var(--on-accent);
+  --color-danger: var(--danger);
+  --color-on-danger: var(--on-danger);
   --color-gain: var(--gain);
   --color-gain-soft: var(--gain-soft);
   --color-tax: var(--tax);
@@ -71,6 +83,18 @@
     @apply bg-accent text-on-accent hover:opacity-90;
   }
 
+  .btn-danger {
+    @apply bg-danger text-on-danger hover:opacity-90;
+  }
+
+  .btn-sm {
+    @apply min-h-9 px-3 text-sm;
+  }
+
+  .card {
+    @apply rounded-lg bg-surface p-5 shadow-sm;
+  }
+
   .btn-secondary {
     @apply border border-line bg-surface hover:border-muted;
   }
@@ -81,6 +105,10 @@
 
   .field {
     @apply block min-h-11 w-full rounded-md border border-line bg-surface px-3;
+  }
+
+  .field-locked {
+    @apply bg-locked text-muted;
   }
 
   .field-error {

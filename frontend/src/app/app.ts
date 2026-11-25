@@ -7,11 +7,11 @@ import { Toaster } from './shared/toaster';
   imports: [RouterLink, RouterOutlet, Toaster],
   template: `
     <header class="border-b border-line bg-surface">
-      <div class="mx-auto flex max-w-5xl items-center px-4 py-4">
+      <div class="mx-auto flex max-w-7xl items-center px-4 py-4">
         <a routerLink="/investments" class="text-lg font-semibold">Investments</a>
       </div>
     </header>
-    <main class="mx-auto max-w-5xl px-4 py-8">
+    <main class="mx-auto max-w-7xl px-4 py-8">
       <router-outlet />
     </main>
     <app-toaster />

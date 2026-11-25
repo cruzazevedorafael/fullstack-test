@@ -6,7 +6,7 @@ import { Investment } from '../core/models';
   template: `
     <span
       class="inline-block rounded-full px-2.5 py-0.5 text-sm font-medium"
-      [class]="status() === 'Active' ? 'bg-gain-soft text-gain' : 'bg-line text-ink'"
+      [class]="status() === 'Active' ? 'bg-gain-soft text-gain' : 'bg-danger-soft text-tax'"
       >{{ status() }}</span
     >
   `,
