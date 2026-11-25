@@ -199,6 +199,111 @@ public class InvestmentTests
         Assert.Equal(DomainErrorKind.Conflict, ex.Kind);
     }
 
+    // ---------- accrual ----------
+
+    [Fact]
+    public void GetAccrual_tells_what_was_earned_and_what_comes_next()
+    {
+        var accrual = NewInvestment().GetAccrual(new DateOnly(2026, 1, 25), Rules)!;
+
+        Assert.Equal(0.0052m, accrual.MonthlyGainRate);
+        Assert.Equal(12, accrual.CompletedMonths);
+        Assert.Equal(new DateOnly(2026, 2, 10), accrual.NextGainDate);
+        Assert.Equal(5.53m, accrual.NextGainAmount); // 1069.75 - 1064.22
+        Assert.Equal(1052.34m, accrual.WithdrawalToday.NetAmount);
+    }
+
+    [Fact]
+    public void GetAccrual_keeps_the_day_of_the_creation_after_a_short_month()
+    {
+        var investment = Investment.Create(OwnerId, 1000m, new DateOnly(2026, 1, 31), Today);
+
+        Assert.Equal(new DateOnly(2026, 2, 28), investment.GetAccrual(new DateOnly(2026, 2, 1), Rules)!.NextGainDate);
+        Assert.Equal(new DateOnly(2026, 3, 31), investment.GetAccrual(new DateOnly(2026, 2, 28), Rules)!.NextGainDate);
+    }
+
+    [Fact]
+    public void GetAccrual_of_a_withdrawn_investment_is_null()
+    {
+        var investment = NewInvestment();
+        investment.Withdraw(new DateOnly(2026, 1, 10), Today, Rules);
+
+        Assert.Null(investment.GetAccrual(Today, Rules));
+    }
+
+    // ---------- growth ----------
+
+    [Fact]
+    public void GetGrowth_has_one_point_per_payment_followed_by_the_projection()
+    {
+        var points = NewInvestment().GetGrowth(new DateOnly(2025, 3, 15), 2, Rules);
+
+        Assert.Equal(
+            [
+                new GrowthPoint(new DateOnly(2025, 1, 10), 1000.00m, false),
+                new GrowthPoint(new DateOnly(2025, 2, 10), 1005.20m, false),
+                new GrowthPoint(new DateOnly(2025, 3, 10), 1010.43m, false),
+                new GrowthPoint(new DateOnly(2025, 4, 10), 1015.68m, true),
+                new GrowthPoint(new DateOnly(2025, 5, 10), 1020.96m, true),
+            ],
+            points);
+    }
+
+    [Fact]
+    public void GetGrowth_of_a_withdrawn_investment_stops_at_the_withdrawal()
+    {
+        var investment = NewInvestment();
+        investment.Withdraw(new DateOnly(2025, 3, 20), Today, Rules);
+
+        var points = investment.GetGrowth(Today, 12, Rules);
+
+        Assert.Equal(3, points.Count);
+        Assert.Equal(new GrowthPoint(new DateOnly(2025, 3, 10), 1010.43m, false), points[^1]);
+    }
+
+    // ---------- simulation ----------
+
+    [Theory]
+    [InlineData(6, "2025-07-10", "1031.61", "0.225", "7.11", "1024.50")]
+    [InlineData(12, "2026-01-10", "1064.22", "0.185", "11.88", "1052.34")]
+    [InlineData(24, "2027-01-10", "1132.56", "0.185", "24.52", "1108.04")] // in the future: a simulation is allowed to
+    [InlineData(36, "2028-01-10", "1205.28", "0.15", "30.79", "1174.49")]
+    public void Simulate_follows_the_withdrawal_rules(int months, string date, string gross, string rate, string tax, string net)
+    {
+        var result = Investment.Simulate(1000m, Created, months, Today, Rules);
+
+        Assert.Equal(DateOnly.Parse(date), result.Date);
+        Assert.Equal(Dec(gross), result.GrossAmount);
+        Assert.Equal(Dec(rate), result.TaxRate);
+        Assert.Equal(Dec(tax), result.TaxAmount);
+        Assert.Equal(Dec(net), result.NetAmount);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(601)]
+    public void Simulate_rejects_a_term_out_of_range(int months)
+    {
+        var ex = Assert.Throws<DomainException>(() => Investment.Simulate(1000m, Created, months, Today, Rules));
+
+        Assert.Equal("simulation.months_out_of_range", ex.Code);
+    }
+
+    [Fact]
+    public void Simulate_rejects_what_could_not_be_created()
+    {
+        Assert.Throws<DomainException>(() => Investment.Simulate(0m, Created, 12, Today, Rules));
+        Assert.Throws<DomainException>(() => Investment.Simulate(1000m, Today.AddDays(1), 12, Today, Rules));
+    }
+
+    [Fact]
+    public void Simulate_supports_the_largest_and_oldest_investment()
+    {
+        var result = Investment.Simulate(Investment.MaxAmount, Investment.MinCreationDate, Investment.MaxSimulationMonths, Today, Rules);
+
+        Assert.True(result.NetAmount > Investment.MaxAmount);
+    }
+
     private static decimal Dec(string value) =>
         decimal.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
 }
